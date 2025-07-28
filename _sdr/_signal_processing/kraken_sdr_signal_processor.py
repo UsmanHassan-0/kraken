@@ -28,7 +28,6 @@ import os
 import threading
 import time
 import traceback
-import xml.etree.ElementTree as ET
 from datetime import datetime
 from functools import lru_cache
 from multiprocessing.dummy import Pool
@@ -118,10 +117,6 @@ class SignalProcessor(threading.Thread):
         self.dsp_decimation = 1
 
         # DOA processing options
-        # self.en_DOA_Bartlett = False
-        # self.en_DOA_Capon    = False
-        # self.en_DOA_MEM      = False
-        # self.en_DOA_MUSIC    = False
         self.DOA_algorithm = "MUSIC"
         self.DOA_offset = 0
         self.DOA_UCA_radius_m = np.Infinity
@@ -782,12 +777,7 @@ class SignalProcessor(threading.Thread):
                             self.DOA_res_fd.seek(0)
                             self.DOA_res_fd.write(message)
                             self.DOA_res_fd.truncate()
-                        elif self.DOA_data_format == "Kerberos App":
-                            self.wr_kerberos(
-                                DOA_str,
-                                confidence_str,
-                                max_power_level_str,
-                            )
+
 
                         DOA_str = f"{self.theta_0_list[0]}"
                         confidence_str = f"{np.max(self.confidence_list[0]):.2f}"
@@ -795,21 +785,6 @@ class SignalProcessor(threading.Thread):
                         doa_result_log = self.doa_result_log_list[0]
                         write_freq = self.freq_list[0]
 
-                        # Save XML unconditionally, e.g., used by DF-Aggregator
-                        self.wr_xml(
-                            self.station_id,
-                            DOA_str,
-                            confidence_str,
-                            max_power_level_str,
-                            write_freq,
-                            self.latitude,
-                            self.longitude,
-                            self.heading,
-                            self.speed,
-                            self.adc_overdrive,
-                            self.number_of_correlated_sources[0],
-                            self.snrs[0],
-                        )
 
                         if self.DOA_data_format == "Kraken Pro Local":
                             self.wr_json(
@@ -914,7 +889,7 @@ class SignalProcessor(threading.Thread):
                                     self.pool.apply_async(requests.post, args=[self.RDF_mapper_server, post])
                                 except Exception as e:
                                     print(f"NO CONNECTION: Invalid Server: {e}")
-                        elif self.DOA_data_format in ("Kraken App", "DF Aggregator", "Kerberos App"):
+                        elif self.DOA_data_format in ("Kraken App", "DF Aggregator"):
                             pass
                         else:
                             self.logger.error(f"Invalid DOA Result data format: {self.DOA_data_format}")
@@ -1007,18 +982,6 @@ class SignalProcessor(threading.Thread):
         else:
             scanning_vectors = np.empty((0, 0))
 
-        # DOA estimation
-        if self.DOA_algorithm == "Bartlett":  # self.en_DOA_Bartlett:
-            DOA_Bartlett_res = de.DOA_Bartlett(R, scanning_vectors)
-            self.DOA = DOA_Bartlett_res
-        if self.DOA_algorithm == "Capon":  # self.en_DOA_Capon:
-            DOA_Capon_res = de.DOA_Capon(R, scanning_vectors)
-            self.DOA = DOA_Capon_res
-        if self.DOA_algorithm == "MEM":  # self.en_DOA_MEM:
-            DOA_MEM_res = de.DOA_MEM(R, scanning_vectors, column_select=0)
-            self.DOA = DOA_MEM_res
-        if self.DOA_algorithm == "TNA":
-            self.DOA = DOA_TNA(R, scanning_vectors)
         if self.DOA_algorithm == "MUSIC":  # self.en_DOA_MUSIC:
             DOA_MUSIC_res = DOA_MUSIC(
                 R, scanning_vectors, signal_dimension=self.DOA_expected_num_of_sources
@@ -1088,91 +1051,6 @@ class SignalProcessor(threading.Thread):
         else:
             self.logger.error("Trying to use GPS, but can't connect to gpsd")
             self.gps_status = "Error"
-
-    def wr_xml(
-        self,
-        station_id,
-        doa,
-        conf,
-        pwr,
-        freq,
-        latitude,
-        longitude,
-        heading,
-        speed,
-        adc_overdrive,
-        num_corr_sources,
-        snr_db,
-    ):
-        # Kerberos-ify the data
-        confidence_str = "{}".format(np.max(int(float(conf) * 100)))
-        max_power_level_str = "{:.1f}".format((np.maximum(-100, float(pwr) + 100)))
-
-        # create the file structure
-        data = ET.Element("DATA")
-        xml_st_id = ET.SubElement(data, "STATION_ID")
-        xml_time = ET.SubElement(data, "TIME")
-        xml_gps_time = ET.SubElement(data, "GPS_TIME")
-        xml_freq = ET.SubElement(data, "FREQUENCY")
-        xml_location = ET.SubElement(data, "LOCATION")
-        xml_latitide = ET.SubElement(xml_location, "LATITUDE")
-        xml_longitude = ET.SubElement(xml_location, "LONGITUDE")
-        xml_heading = ET.SubElement(xml_location, "HEADING")
-        xml_speed = ET.SubElement(xml_location, "SPEED")
-        xml_doa = ET.SubElement(data, "DOA")
-        xml_pwr = ET.SubElement(data, "PWR")
-        xml_conf = ET.SubElement(data, "CONF")
-        xml_latency = ET.SubElement(data, "LATENCY")
-        xml_processing_time = ET.SubElement(data, "PROCESSING_TIME")
-        xml_adc_overdrive = ET.SubElement(data, "ADC_OVERDRIVE")
-        xml_num_corr_sources = ET.SubElement(data, "NUM_CORRELATED_SOURCES")
-        xml_snr = ET.SubElement(data, "SNR_DB")
-
-        xml_st_id.text = str(station_id)
-        xml_time.text = str(self.timestamp)
-        xml_gps_time.text = str(self.gps_timestamp)
-        xml_freq.text = str(freq / 1000000)
-        xml_latitide.text = str(latitude)
-        xml_longitude.text = str(longitude)
-        xml_heading.text = str(heading)
-        xml_speed.text = str(speed)
-        xml_doa.text = doa
-        xml_pwr.text = max_power_level_str
-        xml_conf.text = confidence_str
-        xml_latency.text = f"{self.latency}"
-        xml_processing_time.text = f"{self.processing_time}"
-        xml_adc_overdrive.text = str(adc_overdrive)
-        xml_num_corr_sources.text = str(num_corr_sources)
-        xml_snr.text = str(snr_db)
-
-        # create a new XML file with the results
-        html_str = ET.tostring(data, encoding="unicode")
-
-        with open(os.path.join(shared_path, "doa.xml"), "w+", encoding="utf-8") as file:
-            file.write(html_str)
-
-    def wr_kerberos(
-        self,
-        DOA_str,
-        confidence_str,
-        max_power_level_str,
-    ):
-        confidence_str = "{}".format(np.max(int(float(confidence_str) * 100)))
-        max_power_level_str = "{:.1f}".format((np.maximum(-100, float(max_power_level_str) + 100)))
-
-        html_str = (
-            "<DATA>\n<DOA>"
-            + DOA_str
-            + "</DOA>\n<CONF>"
-            + confidence_str
-            + "</CONF>\n<PWR>"
-            + max_power_level_str
-            + "</PWR>\n</DATA>"
-        )
-        self.DOA_res_fd.seek(0)
-        self.DOA_res_fd.write(html_str)
-        self.DOA_res_fd.truncate()
-        self.logger.debug("DoA results writen: {:s}".format(html_str))
 
     def wr_json(
         self,
