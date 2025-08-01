@@ -13,7 +13,7 @@ from maindash import app, spectrum_fig, waterfall_fig, web_interface
 
 from dash_devices.dependencies import Input, Output, State
 from kraken_sdr_receiver import ReceiverRTLSDR
-from kraken_sdr_signal_processor import SignalProcessor, xi
+from kraken_sdr_signal_processor import SignalProcessor
 from kraken_web_config import write_config_file_dict
 from kraken_web_spectrum import init_spectrum_fig
 from utils import (
@@ -25,8 +25,6 @@ from utils import (
     settings_change_watcher,
 )
 from variables import (
-    DECORRELATION_OPTIONS,
-    DOA_METHODS,
     current_path,
     daq_config_filename,
     daq_start_filename,
@@ -354,55 +352,17 @@ def toggle_custom_array_fields(toggle_value):
         return [{"display": "block"}, {"display": "block"}, {"display": "none"}]
 
 
-# Fallback to MUSIC if "Custom" arrangement is selected for ROOT-MUSIC
-@app.callback(
-    [Output("doa_method", "value")],
-    [Input("radio_ant_arrangement", "value")],
-)
-def fallback_custom_array_to_music(toggle_value):
-    if toggle_value == "Custom" and web_interface.module_signal_processor.DOA_algorithm == "ROOT-MUSIC":
-        return ["MUSIC"]
-    else:
-        return [web_interface.module_signal_processor.DOA_algorithm]
-
-
-# Disable ROOT-MUSIC if "Custom" arrangement is selected
-@app.callback(
-    [Output("doa_method", "options")],
-    [Input("radio_ant_arrangement", "value")],
-)
-def disable_root_music_for_custom_array(toggle_value):
-    if toggle_value == "Custom":
-        return [
-            [
-                (
-                    dict(doa_method, disabled=True)
-                    if doa_method["value"] == "ROOT-MUSIC"
-                    else dict(doa_method, disabled=False)
-                )
-                for doa_method in DOA_METHODS
-            ]
-        ]
-    else:
-        return [[dict(doa_method, disabled=False) for doa_method in DOA_METHODS]]
-
-
 @app.callback(
     [
         Output(component_id="body_ant_spacing_wavelength", component_property="children"),
         Output(component_id="label_ant_spacing_meter", component_property="children"),
         Output(component_id="ambiguity_warning", component_property="children"),
-        Output(component_id="doa_decorrelation_method", component_property="options"),
-        Output(component_id="doa_decorrelation_method", component_property="disabled"),
-        Output(component_id="uca_decorrelation_warning", component_property="children"),
-        Output(component_id="uca_root_music_warning", component_property="children"),
         Output(component_id="expected_num_of_sources", component_property="options"),
         Output(component_id="expected_num_of_sources", component_property="disabled"),
     ],
     [
         Input(component_id="placeholder_update_freq", component_property="children"),
         Input(component_id="en_doa_check", component_property="value"),
-        Input(component_id="doa_decorrelation_method", component_property="value"),
         Input(component_id="ant_spacing_meter", component_property="value"),
         Input(component_id="radio_ant_arrangement", component_property="value"),
         Input(component_id="doa_fig_type", component_property="value"),
@@ -417,9 +377,7 @@ def disable_root_music_for_custom_array(toggle_value):
     ],
 )
 def update_dsp_params(
-    update_freq,
     en_doa,
-    doa_decorrelation_method,
     spacing_meter,
     ant_arrangement,
     doa_fig_type,
@@ -498,41 +456,6 @@ def update_dsp_params(
 
     web_interface.module_signal_processor.DOA_algorithm = doa_method
 
-    is_odd_number_of_channels = web_interface.module_signal_processor.channel_number % 2 != 0
-    # UCA->VULA transformation works best if we have odd number of channels
-    is_decorrelation_applicable = ant_arrangement != "Custom" and is_odd_number_of_channels
-    web_interface.module_signal_processor.DOA_decorrelation_method = (
-        doa_decorrelation_method if is_decorrelation_applicable else DECORRELATION_OPTIONS[0]["value"]
-    )
-
-    doa_decorrelation_method_options = (
-        DECORRELATION_OPTIONS
-        if is_decorrelation_applicable
-        else [{**DECORRELATION_OPTION, "label": "N/A"} for DECORRELATION_OPTION in DECORRELATION_OPTIONS]
-    )
-    doa_decorrelation_method_state = False if is_decorrelation_applicable else True
-
-    if (
-        ant_arrangement == "UCA"
-        and web_interface.module_signal_processor.DOA_decorrelation_method != DECORRELATION_OPTIONS[0]["value"]
-    ):
-        uca_decorrelation_warning = "WARNING: Using decorrelation methods with UCA array is still experimental as it might produce inconsistent results."
-        _, L = xi(web_interface.ant_spacing_meters, web_interface.daq_center_freq * 1.0e6)
-        M = web_interface.module_signal_processor.channel_number // 2
-        if L < M:
-            if ambiguity_warning != "":
-                ambiguity_warning += "\n"
-            ambiguity_warning += "WARNING: If decorrelation is used with UCA, please try to keep radius of the array as large as possible."
-    else:
-        uca_decorrelation_warning = ""
-
-    if ant_arrangement == "UCA" and doa_method == "ROOT-MUSIC":
-        uca_root_music_warning = "WARNING: Using ROOT-MUSIC method with UCA array is still experimental as it might produce inconsistent results."
-    elif ant_arrangement == "Custom" and doa_method == "ROOT-MUSIC":
-        uca_root_music_warning = "WARNING: ROOT-MUSIC cannot be used with 'Custom' antenna arrangement."
-    else:
-        uca_root_music_warning = ""
-
     web_interface.module_signal_processor.DOA_ant_alignment = ant_arrangement
     web_interface._doa_fig_type = doa_fig_type
     web_interface.module_signal_processor.doa_measure = doa_fig_type
@@ -557,17 +480,9 @@ def update_dsp_params(
             }
             for c in range(1, web_interface.module_signal_processor.channel_number)
         ]
-        if "MUSIC" in doa_method
-        else [
-            {
-                "label": "N/A",
-                "value": c,
-            }
-            for c in range(1, web_interface.module_signal_processor.channel_number)
-        ]
     )
 
-    num_of_sources_state = False if "MUSIC" in doa_method else True
+    num_of_sources_state = False
 
     web_interface.save_configuration()
 
@@ -575,10 +490,6 @@ def update_dsp_params(
         str(ant_spacing_wavelength),
         spacing_label,
         ambiguity_warning,
-        doa_decorrelation_method_options,
-        doa_decorrelation_method_state,
-        uca_decorrelation_warning,
-        uca_root_music_warning,
         num_of_sources,
         num_of_sources_state,
     ]
@@ -868,7 +779,6 @@ def settings_change_refresh(toggle_value, pathname):
                 "en_system_control": {"value": web_interface.en_system_control},
                 "en_beta_features": {"value": web_interface.en_beta_features},
                 "en_doa_check": {"value": [1] if web_interface.module_signal_processor.en_DOA_estimation else []},
-                "doa_decorrelation_method": {"value": web_interface.module_signal_processor.DOA_decorrelation_method},
                 "radio_ant_arrangement": {"value": web_interface.module_signal_processor.DOA_ant_alignment},
                 "custom_array_x_meters": {
                     "value": ",".join(["%.2f" % num for num in web_interface.custom_array_x_meters])
@@ -1032,7 +942,6 @@ def reconfig_daq_chain(input_value, freq, gain):
     DOA_ant_alignment = web_interface.module_signal_processor.DOA_ant_alignment
     DOA_inter_elem_space = web_interface.module_signal_processor.DOA_inter_elem_space
     en_DOA_estimation = web_interface.module_signal_processor.en_DOA_estimation
-    doa_decorrelation_method = web_interface.module_signal_processor.DOA_decorrelation_method
     ula_direction = web_interface.module_signal_processor.ula_direction
 
     doa_format = web_interface.module_signal_processor.DOA_data_format
@@ -1058,7 +967,6 @@ def reconfig_daq_chain(input_value, freq, gain):
     web_interface.module_signal_processor.DOA_ant_alignment = DOA_ant_alignment
     web_interface.module_signal_processor.DOA_inter_elem_space = DOA_inter_elem_space
     web_interface.module_signal_processor.en_DOA_estimation = en_DOA_estimation
-    web_interface.module_signal_processor.DOA_decorrelation_method = doa_decorrelation_method
     web_interface.module_signal_processor.ula_direction = ula_direction
 
     web_interface.module_signal_processor.DOA_data_format = doa_format

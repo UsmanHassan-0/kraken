@@ -6,7 +6,7 @@ from maindash import web_interface
 
 # isort: on
 
-from variables import DECORRELATION_OPTIONS, DOA_METHODS, option
+from variables import DOA_METHODS, option
 
 
 def get_dsp_config_card_layout():
@@ -118,21 +118,6 @@ def get_dsp_config_card_layout():
                 ],
                 className="field",
             ),
-            html.Div([html.Div("", id="uca_root_music_warning", className="field", style={"color": "#f39c12"})]),
-            html.Div(
-                [
-                    html.Div("Decorrelation:", id="label_decorrelation", className="field-label"),
-                    dcc.Dropdown(
-                        id="doa_decorrelation_method",
-                        options=DECORRELATION_OPTIONS,
-                        value=web_interface.module_signal_processor.DOA_decorrelation_method,
-                        style={"display": "inline-block"},
-                        className="field-body",
-                    ),
-                ],
-                className="field",
-            ),
-            html.Div([html.Div("", id="uca_decorrelation_warning", className="field", style={"color": "#f39c12"})]),
             html.Div(
                 [
                     html.Div("ULA Output Direction:", id="label_ula_direction", className="field-label"),

@@ -77,10 +77,6 @@ valid_sample_rates = [0.25, 0.900001, 1.024, 1.4, 1.8, 1.92, 2.048, 2.4, 2.56, 3
 valid_daq_buffer_sizes = (2 ** np.arange(10, 21, 1)).tolist()
 calibration_tack_modes = [["No tracking", 0], ["Periodic tracking", 2]]
 doa_trace_colors = {
-    "DoA Bartlett": "#00B5F7",
-    "DoA Capon": "rgb(226,26,28)",
-    "DoA MEM": "#1CA71C",
-    "DoA TNA": "rgb(255, 0, 255)",
     "DoA MUSIC": "rgb(257,233,111)",
 }
 figure_font_size = 20
@@ -99,21 +95,8 @@ doa_fig = go.Figure(layout=fig_layout)
 
 option = [{"label": "", "value": 1}]
 
-DECORRELATION_OPTIONS = [
-    {"label": "Off", "value": "Off"},
-    {"label": "F-B Averaging", "value": "FBA"},
-    {"label": "Toeplizification", "value": "TOEP"},
-    {"label": "Spatial Smoothing", "value": "FBSS"},
-    {"label": "F-B Toeplitz", "value": "FBTOEP"},
-]
-
 DOA_METHODS = [
-    {"label": "Bartlett", "value": "Bartlett"},
-    {"label": "Capon", "value": "Capon"},
-    {"label": "MEM", "value": "MEM"},
-    {"label": "TNA", "value": "TNA"},
     {"label": "MUSIC", "value": "MUSIC"},
-    {"label": "ROOT-MUSIC", "value": "ROOT-MUSIC"},
 ]
 
 HZ_TO_MHZ = 1.0e-6

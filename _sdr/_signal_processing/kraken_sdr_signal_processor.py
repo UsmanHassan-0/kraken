@@ -25,7 +25,6 @@ import scipy
 from iq_header import IQHeader
 from kraken_sdr_receiver import ReceiverRTLSDR
 from numba import float32, njit, vectorize
-from pyargus import directionEstimation as de
 from scipy import fft, signal
 from signal_utils import can_store_file, fm_demod, write_wav
 from variables import (
@@ -78,11 +77,6 @@ class SignalProcessor(threading.Thread):
         self.dsp_decimation = 1
 
         # DOA processing options
-        # self.en_DOA_Bartlett = False
-        # self.en_DOA_Capon    = False
-        # self.en_DOA_MEM      = False
-        # self.en_DOA_MUSIC    = False
-        self.DOA_algorithm = "MUSIC"
         self.DOA_offset = 0
         self.DOA_UCA_radius_m = np.Infinity
         self.DOA_inter_elem_space = 0.5
@@ -93,7 +87,6 @@ class SignalProcessor(threading.Thread):
         self.custom_array_y = np.array([0.1, 0.2, 0.3, 0.4, 0.5])
         self.array_offset = 0.0
         self.DOA_expected_num_of_sources = 1
-        self.DOA_decorrelation_method = "Off"
 
         # Processing parameters
         self.spectrum_window_size = fft.next_fast_len(4096)
@@ -705,33 +698,10 @@ class SignalProcessor(threading.Thread):
         """
 
         antennas_alignment = self.DOA_ant_alignment
-        if antennas_alignment == "UCA" and (
-            self.DOA_algorithm == "ROOT-MUSIC" or self.DOA_decorrelation_method != "Off"
-        ):
-            antennas_alignment = "VULA"
-
-        if antennas_alignment == "VULA":
-            processed_signal = transform_to_phase_mode_space(processed_signal, self.DOA_UCA_radius_m, vfo_freq)
-            # no idea on why this fliping of direction is needed
-            processed_signal = np.flip(processed_signal)
 
         # Calculating spatial correlation matrix
         R = corr_matrix(processed_signal)
         M = R.shape[0]
-
-        if self.DOA_decorrelation_method == "FBA":
-            R = de.forward_backward_avg(R)
-        elif self.DOA_decorrelation_method == "TOEP":
-            R = toeplitzify(R)
-        elif self.DOA_decorrelation_method == "FBSS":
-            # VULA must have odd number of elements after spatial averaging
-            smoothing_degree = 2 if antennas_alignment == "VULA" else 1
-            subarray_size = M - smoothing_degree
-            if subarray_size > 1:
-                R = de.spatial_smoothing(processed_signal.T, subarray_size, "forward-backward")
-            else:
-                # Too few channels for spatial smoothing, skipping it.
-                pass
 
         M = R.shape[0]
 
@@ -766,32 +736,9 @@ class SignalProcessor(threading.Thread):
 
 
         # DOA estimation
-        if self.DOA_algorithm == "Bartlett":  # self.en_DOA_Bartlett:
-            DOA_Bartlett_res = de.DOA_Bartlett(R, scanning_vectors)
-            self.DOA = DOA_Bartlett_res
-        if self.DOA_algorithm == "Capon":  # self.en_DOA_Capon:
-            DOA_Capon_res = de.DOA_Capon(R, scanning_vectors)
-            self.DOA = DOA_Capon_res
-        if self.DOA_algorithm == "MEM":  # self.en_DOA_MEM:
-            DOA_MEM_res = de.DOA_MEM(R, scanning_vectors, column_select=0)
-            self.DOA = DOA_MEM_res
-        if self.DOA_algorithm == "TNA":
-            self.DOA = DOA_TNA(R, scanning_vectors)
-        if self.DOA_algorithm == "MUSIC":  # self.en_DOA_MUSIC:
-            DOA_MUSIC_res = DOA_MUSIC(
-                R, scanning_vectors, signal_dimension=self.DOA_expected_num_of_sources
-            )  # de.DOA_MUSIC(R, scanning_vectors, signal_dimension = 1)
-            self.DOA = DOA_MUSIC_res
-        if self.DOA_algorithm == "ROOT-MUSIC":
-            is_vula = True if antennas_alignment == "VULA" else False
-            doas = doa_root_music(
-                R, self.DOA_expected_num_of_sources, is_vula, inter_element_spacing, self.array_offset
-            )
-            self.DOA = normalized_gaussian(self.DOA_theta, doas, DEFAULT_ROOT_MUSIC_STD_DEGREES)
-            # since roots are sorted based on how close they are to the unit circle,
-            # which in turn is proportional to SNR,
-            # then the last element should correspond to the strongest signal
-            theta_0 = doas[-1]
+        self.DOA = DOA_MUSIC(
+            R, scanning_vectors, signal_dimension=self.DOA_expected_num_of_sources
+        )
 
         # ULA Array, choose bewteen the full omnidirecitonal 360 data, or forward/backward data only
         if self.DOA_ant_alignment == "ULA":
@@ -805,7 +752,6 @@ class SignalProcessor(threading.Thread):
                 min_val = min(self.DOA)
                 self.DOA[thetas[0:90].astype(int)] = min_val
                 self.DOA[thetas[270:360].astype(int)] = min_val
-
 
         theta_0 = self.DOA_theta[np.argmax(self.DOA)]
 
@@ -909,58 +855,6 @@ def channelize(processed_signal, freq, decimation_factor, fir_order_factor, samp
     )  # Shift the signal AFTER to get back to normal decimate behaviour
     return numba_mult(decimated, exponential)
 
-    # Old Method
-    # Auto shift peak frequency center of spectrum, this frequency will be decimated:
-    # https://pysdr.org/content/filters.html
-    # f0 = -freq #+10
-    # Ts = 1.0/sample_freq
-    # t = np.arange(0.0, Ts*len(processed_signal[0, :]), Ts)
-    # exponential = np.exp(2j*np.pi*f0*t) # this is essentially a complex sine wave
-
-    # Decimate down to BW
-    # decimation_factor = max((sample_freq // bw), 1)
-    # decimated_signal = signal.decimate(processed_signal, decimation_factor, n = decimation_factor * 2, ftype='fir')
-
-    # return decimated_signal
-
-
-# NUMBA optimized Thermal Noise Algorithm (TNA) function.
-# Based on `pyargus` DOA_Capon
-@njit(fastmath=True, cache=True)
-def DOA_TNA(R, scanning_vectors):
-    # --> Input check
-
-    if R.shape[0] != scanning_vectors.shape[0]:
-        print("ERROR: Correlation matrix dimension does not match with the antenna array dimension")
-        return np.ones(1, dtype=np.complex64) * -2
-
-    ADSINR = np.zeros(scanning_vectors.shape[1], dtype=np.complex64)
-
-    # TODO: perhaps we can store scanning_vectors in column-major order from the very begining to
-    # avoid such conversion?
-    S_ = np.asfortranarray(scanning_vectors)
-
-    # --- Calculation ---
-    try:
-        R_inv_2 = np.linalg.matrix_power(R, -2)
-    except np.linalg.LinAlgError:
-        print("ERROR: Singular or non-square matrix")
-        return np.ones(1, dtype=np.complex64) * -3
-
-    # TODO: it seems like rising correlation matrix to power benefits from added precision.
-    # This might be artifact of the testing and if it is then we can switching the whole
-    # processing chain from double to single precision for considerable performance uplift,
-    # especially on low grade hardware.
-    R_inv_2 = R_inv_2.astype(np.complex64)
-
-    for i in range(scanning_vectors.shape[1]):
-        S_theta_ = S_[:, i]
-        ADSINR[i] = np.dot(np.conj(S_theta_), np.dot(R_inv_2, S_theta_))
-
-    ADSINR = np.reciprocal(ADSINR)
-
-    return ADSINR
-
 
 # NUMBA optimized MUSIC function. About 100x faster on the Pi 4
 # @njit(fastmath=True, cache=True, parallel=True)
@@ -1028,49 +922,6 @@ def to_zero_to_pi(angle):
     return angle
 
 
-# Root-MUSIC DoA estimator for ULA and UCA
-# A. Barabell,
-# "Improving the resolution performance of eigenstructure-based direction-finding algorithms."
-# ICASSP'83. IEEE International Conference on Acoustics, Speech, and Signal Processing. Vol. 8. IEEE, 1983.
-# doi: 10.1109/ICASSP.1983.1172124
-@njit(fastmath=True, cache=True)
-def doa_root_music(r, signal_dimension, is_vula, inter_element_spacing, array_angle_offset):
-    M = r.shape[0]
-
-    # correlation matrix is Hermitian, so why not to use faster `eigh` solver
-    _, v_i = lin.eigh(r)
-
-    # Generate noise subspace matrix
-    # eigh provides eigenvalues sorted in ascending order out-of-the-box
-    v_i = v_i.astype(np.complex64)
-    e_noise = v_i[:, :-signal_dimension]
-
-    e_ct = e_noise @ e_noise.conj().T
-
-    p_coeff = np.empty(2 * M - 1, dtype=np.complex64)
-    for i in range(-M + 1, M):
-        p_coeff[i + (M - 1)] = np.trace(e_ct, i)
-
-    all_roots = np.roots(p_coeff)
-
-    candidate_roots_abs = np.abs(all_roots)
-    sorted_idx = candidate_roots_abs.argsort()[(M - 1 - signal_dimension) : (M - 1)]
-
-    valid_roots = all_roots[sorted_idx]
-    args = np.angle(valid_roots)
-
-    if is_vula:
-        doas = to_zero_to_2pi(args)
-        doas_deg = np.rad2deg(doas) + array_angle_offset
-        return doas_deg
-
-    doas = np.arcsin(args / (np.float32(inter_element_spacing * 2.0 * np.pi)))
-    doas = to_zero_to_pi(doas)
-    doas_deg = np.rad2deg(doas) + array_angle_offset
-
-    return doas_deg
-
-
 # Rather naive way to estimate SNR (in dBs) based on the assumption that largest and smallest eigenvalues
 # of the correlation matrix corresponds to the powers of the signal plus noise  and noise respectively.
 # Even though it won't estimate SNR beyond dominant signal, if it is already quite small,
@@ -1104,50 +955,6 @@ def normalized_gaussian(x, x0, sigma):
     return doa_spectrum
 
 
-def xi(uca_radius_m: float, frequency_Hz: float) -> Tuple[float, int]:
-    wavelength_m = scipy.constants.speed_of_light / frequency_Hz
-    x = 2.0 * np.pi * uca_radius_m / wavelength_m
-    L = int(np.floor(x))
-    return x, L
-
-
-# The phase mode excitation transformation
-# as introduced by A. H. Tewfik and W. Hong,
-# "On the application of uniform linear array bearing estimation techniques to uniform circular arrays",
-# in IEEE Transactions on Signal Processing, vol. 40, no. 4, pp. 1008-1011, April 1992,
-# doi: 10.1109/78.127980.
-@lru_cache(maxsize=32)
-def T(uca_radius_m: float, frequency_Hz: float, N: int) -> np.ndarray:
-    x, L = xi(uca_radius_m, frequency_Hz)
-
-    # J
-    J = np.diag([1.0 / ((1j**v) * scipy.special.jv(v, x)) for v in range(-L, L + 1, 1)])
-
-    # F
-    F = np.array([[np.exp(2.0j * np.pi * (m * n / N)) for n in range(0, N, 1)] for m in range(-L, L + 1, 1)])
-
-    return (J @ F) / float(N)
-
-
-# The so-called "prewhitening"
-# applied to turn A into unitary transformation
-def whiten(A: np.ndarray) -> np.ndarray:
-    A_H = A.conj().T
-    A_w = A @ A_H
-    A_w = scipy.linalg.fractional_matrix_power(A_w, -0.5)
-    return A_w @ A
-
-
-# @njit(fastmath=True, cache=True)
-def transform_to_phase_mode_space(signal: np.ndarray, uca_radius_m: float, frequency_Hz: float) -> np.ndarray:
-    T_ = T(uca_radius_m, frequency_Hz, signal.shape[0])
-    # apparently T is not unitary and would "color" the noise in the input signal
-    # thus prewhitening needs to be applied particularly to make MUSIC work
-    Tw = whiten(T_)
-    x = Tw @ signal
-    return x
-
-
 # Numba optimized version of pyArgus corr_matrix_estimate with "fast". About 2x faster on Pi4
 # @njit(fastmath=True, cache=True)
 def corr_matrix(X: np.ndarray) -> np.ndarray:
@@ -1155,32 +962,6 @@ def corr_matrix(X: np.ndarray) -> np.ndarray:
     R = np.dot(X, X.conj().T)
     R = np.divide(R, N)
     return R
-
-
-# This is so-called "Rectification" or "Toeplizification" of correlation matrix method
-# investigated by P. Vallet and P. Loubaton, "Toeplitz rectification and DOA estimation with MUSIC",
-# 2014 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP),
-# Florence, Italy, 2014, pp. 2237-2241, doi: 10.1109/ICASSP.2014.6853997. and references therein.
-def toeplitzify(R: np.ndarray) -> np.ndarray:
-    M = R.shape[0]
-    ms = np.arange(0, -M, -1, dtype=int)
-    c = [1.0 / (float(M - abs(m))) * np.trace(R, m) for m in ms]
-    return scipy.linalg.toeplitz(c)
-
-
-# This is one of so-called "Toeplitz Reconstruction" of correlation matrix methods
-# investigated A. M. McDonald and M. A. van Wyk,
-# "A Condition for Unbiased Direction-of-Arrival Estimation with Toeplitz Decorrelation Techniques",
-# 2019 IEEE Asia Pacific Conference on Postgraduate Research in Microelectronics and Electronics (PrimeAsia),
-# Bangkok, Thailand, 2019, pp. 45-48, doi: 10.1109/PrimeAsia47521.2019.8950749. and references therein.
-# with important addition of the F-B averaging suggested by R. M. Shubair, et al.,
-# "A new technique for UCA-based DOA estimation of coherent signals,"
-# 2016 16th Mediterranean Microwave Symposium (MMS),
-# Abu Dhabi, United Arab Emirates, 2016, pp. 1-3, doi: 10.1109/MMS.2016.7803806. and references therein.
-def fb_toeplitz_reconstruction(R: np.ndarray) -> np.ndarray:
-    R_f = scipy.linalg.toeplitz(R[:, 0], R[0, :])
-    R_b = scipy.linalg.toeplitz(np.flip(R[:, -1]), np.flip(R[-1, :]))
-    return 0.5 * (R_f + R_b.conj())
 
 
 # LRU cache memoize about 1000x faster.
