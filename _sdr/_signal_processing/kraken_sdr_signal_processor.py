@@ -104,8 +104,6 @@ class SignalProcessor(threading.Thread):
         self.DOA_ant_alignment = "ULA"
         self.ula_direction = "Both"
         self.DOA_theta = np.linspace(0, 359, 360)
-        self.custom_array_x = np.array([0.1, 0.2, 0.3, 0.4, 0.5])
-        self.custom_array_y = np.array([0.1, 0.2, 0.3, 0.4, 0.5])
         self.array_offset = 0.0
         self.DOA_expected_num_of_sources = 1
 
@@ -928,13 +926,6 @@ class SignalProcessor(threading.Thread):
             scanning_vectors = gen_scanning_vectors(
                 M, inter_element_spacing, antennas_alignment, int(self.array_offset)
             )
-        elif antennas_alignment == "VULA":
-            L = R.shape[0] // 2
-            scanning_vectors = gen_scanning_vectors_phase_modes_space(L, self.array_offset)
-        elif antennas_alignment == "Custom":
-            scanning_vectors = gen_scanning_vectors_custom(
-                M, self.custom_array_x * frq_ratio, self.custom_array_y * frq_ratio
-            )
         else:
             scanning_vectors = np.empty((0, 0))
 
@@ -1278,18 +1269,6 @@ def corr_matrix(X: np.ndarray) -> np.ndarray:
 
 # LRU cache memoize about 1000x faster.
 @lru_cache(maxsize=32)
-def gen_scanning_vectors_phase_modes_space(L, offset):
-    thetas = np.deg2rad(np.linspace(0, 359, 360, dtype=float))
-    M = np.arange(-L, L + 1, dtype=float)
-    scanning_vectors = np.zeros((M.size, thetas.size), dtype=np.complex64)
-    for i in range(thetas.size):
-        scanning_vectors[:, i] = np.exp(1.0j * M * (thetas[i] + offset))
-
-    return np.ascontiguousarray(scanning_vectors)
-
-
-# LRU cache memoize about 1000x faster.
-@lru_cache(maxsize=32)
 def gen_scanning_vectors(M, DOA_inter_elem_space, type, offset):
     thetas = np.linspace(
         0, 359, 360
@@ -1308,42 +1287,6 @@ def gen_scanning_vectors(M, DOA_inter_elem_space, type, offset):
     for i in range(thetas.size):
         scanning_vectors[:, i] = np.exp(
             1j * 2 * np.pi * (x * np.cos(np.deg2rad(thetas[i] + offset)) + y * np.sin(np.deg2rad(thetas[i] + offset)))
-        )
-
-    return np.ascontiguousarray(scanning_vectors)
-
-
-# @lru_cache(maxsize=32)
-@njit(fastmath=True, cache=True)
-def gen_scanning_vectors_custom(M, custom_x, custom_y):
-    thetas = np.linspace(
-        0, 359, 360
-    )  # Remember to change self.DOA_thetas too, we didn't include that in this function due to memoization cannot work with arrays
-
-    x = np.zeros(M, dtype=np.float32)
-    y = np.zeros(M, dtype=np.float32)
-
-    for i in range(len(custom_x)):
-        if i > M:
-            break
-        if custom_x[i] == "":
-            x[i] = 0
-        else:
-            x[i] = float(custom_x[i])
-
-    for i in range(len(custom_y)):
-        if i > M:
-            break
-        if custom_x[i] == "":
-            y[i] = 0
-        else:
-            y[i] = float(custom_y[i])
-
-    scanning_vectors = np.zeros((M, thetas.size), dtype=np.complex64)
-    complex_pi = 1j * 2 * np.pi
-    for i in range(thetas.size):
-        scanning_vectors[:, i] = np.exp(
-            complex_pi * (x * np.cos(np.deg2rad(thetas[i])) + y * np.sin(np.deg2rad(thetas[i])))
         )
 
     return np.ascontiguousarray(scanning_vectors)
