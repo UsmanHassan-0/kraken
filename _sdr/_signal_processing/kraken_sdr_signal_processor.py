@@ -42,16 +42,6 @@ from variables import (
 # os.environ['OPENBLAS_NUM_THREADS'] = '4'
 # os.environ['NUMBA_CPU_NAME'] = 'cortex-a72'
 
-# Make gpsd an optional component
-try:
-    import gpsd
-
-    hasgps = True
-    print("gpsd Available")
-except ModuleNotFoundError:
-    hasgps = False
-    print("Can't find gpsd - ok if no external gps used")
-
 MIN_SPEED_FOR_VALID_HEADING = 2.0  # m / s
 MIN_DURATION_FOR_VALID_HEADING = 3.0  # s
 DEFAULT_VFO_FIR_ORDER_FACTOR = int(2)
@@ -163,11 +153,10 @@ class SignalProcessor(threading.Thread):
         self.timestamp = int(time.time() * 1000)
         self.gps_timestamp = int(0)
 
-        # Output Data format. XML for Kerberos, CSV for Kracken, JSON future
-        self.DOA_data_format = "Kraken App"  # XML, CSV, or JSON
+        # Output Data format
+        self.DOA_data_format = "Kraken App"  # CSV
 
         # Location parameters
-        self.gps_status = "Disabled"
         self.station_id = "NOCALL"
         self.latitude = 0.0
         self.longitude = 0.0
@@ -176,11 +165,6 @@ class SignalProcessor(threading.Thread):
         self.time_of_last_invalid_heading = time.time()
         self.altitude = 0.0
         self.speed = 0.0
-        self.hasgps = hasgps
-        self.usegps = False
-        self.gps_min_speed_for_valid_heading = MIN_SPEED_FOR_VALID_HEADING
-        self.gps_min_duration_for_valid_heading = MIN_DURATION_FOR_VALID_HEADING
-        self.gps_connected = False
         self.krakenpro_key = "0"
         self.RDF_mapper_server = "http://MY_RDF_MAPPER_SERVER.com/save.php"
         self.full_rest_server = "http://MY_REST_SERVER.com/save.php"
@@ -327,9 +311,6 @@ class SignalProcessor(threading.Thread):
             while self.run_processing:
                 self.is_running = True
                 que_data_packet = []
-
-                if self.hasgps and self.usegps:
-                    self.update_location_and_timestamp()
 
                 # -----> ACQUIRE NEW DATA FRAME <-----
                 get_iq_failed = self.module_receiver.get_iq_online()
@@ -799,42 +780,6 @@ class SignalProcessor(threading.Thread):
         theta_0 = self.DOA_theta[np.argmax(self.DOA)]
 
         return theta_0
-
-    # Enable GPS
-    def enable_gps(self):
-        if self.hasgps:
-            if not gpsd.state:
-                gpsd.connect()
-                self.logger.info("Connecting to GPS")
-                self.gps_connected = True
-        else:
-            self.logger.error("You're trying to use GPS, but gpsd-py3 isn't installed")
-
-        return self.gps_connected
-
-    # Get GPS Data
-    def update_location_and_timestamp(self):
-        if self.gps_connected:
-            try:
-                packet = gpsd.get_current()
-                self.latitude, self.longitude = packet.position()
-                self.speed = packet.speed()
-                if (not self.fixed_heading) and (self.speed >= self.gps_min_speed_for_valid_heading):
-                    if (time.time() - self.time_of_last_invalid_heading) >= self.gps_min_duration_for_valid_heading:
-                        self.heading = round(packet.movement().get("track"), 1)
-                else:
-                    self.time_of_last_invalid_heading = time.time()
-                self.gps_status = "Connected"
-                self.gps_timestamp = int(round(1000.0 * packet.get_time().timestamp()))
-            except (gpsd.NoFixError, UserWarning, ValueError, BrokenPipeError):
-                self.latitude = self.longitude = 0.0
-                self.gps_timestamp = 0
-                self.heading = self.heading if self.fixed_heading else 0.0
-                self.logger.error("gpsd error, nofix")
-                self.gps_status = "Error"
-        else:
-            self.logger.error("Trying to use GPS, but can't connect to gpsd")
-            self.gps_status = "Error"
 
     def update_recording_filename(self, filename):
         self.data_record_fd.close()
