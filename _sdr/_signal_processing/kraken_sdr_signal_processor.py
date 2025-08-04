@@ -83,8 +83,6 @@ class SignalProcessor(threading.Thread):
         self.DOA_ant_alignment = "ULA"
         self.ula_direction = "Both"
         self.DOA_theta = np.linspace(0, 359, 360)
-        self.custom_array_x = np.array([0.1, 0.2, 0.3, 0.4, 0.5])
-        self.custom_array_y = np.array([0.1, 0.2, 0.3, 0.4, 0.5])
         self.array_offset = 0.0
         self.DOA_expected_num_of_sources = 1
 
@@ -715,21 +713,9 @@ class SignalProcessor(threading.Thread):
         frq_ratio = vfo_freq / self.module_receiver.daq_center_freq
         inter_element_spacing = self.DOA_inter_elem_space * frq_ratio
         
-        
-        if antennas_alignment == "ULA":
+        if antennas_alignment == "UCA":
             scanning_vectors = gen_scanning_vectors(
                 M, inter_element_spacing, antennas_alignment, int(self.array_offset)
-            )
-        elif antennas_alignment == "UCA":
-            scanning_vectors = gen_scanning_vectors(
-                M, inter_element_spacing, antennas_alignment, int(self.array_offset)
-            )
-        elif antennas_alignment == "VULA":
-            L = R.shape[0] // 2
-            scanning_vectors = gen_scanning_vectors_phase_modes_space(L, self.array_offset)
-        elif antennas_alignment == "Custom":
-            scanning_vectors = gen_scanning_vectors_custom(
-                M, self.custom_array_x * frq_ratio, self.custom_array_y * frq_ratio
             )
         else:
             scanning_vectors = np.empty((0, 0))
@@ -739,19 +725,6 @@ class SignalProcessor(threading.Thread):
         self.DOA = DOA_MUSIC(
             R, scanning_vectors, signal_dimension=self.DOA_expected_num_of_sources
         )
-
-        # ULA Array, choose bewteen the full omnidirecitonal 360 data, or forward/backward data only
-        if self.DOA_ant_alignment == "ULA":
-            thetas = (
-                np.linspace(0, 359, 360) - self.array_offset
-            ) % 360  # Rotate array with offset (in reverse to compensate for rotation done in gen_scanning_vectors)
-            if self.ula_direction == "Forward":
-                self.DOA[thetas[90:270].astype(int)] = min(self.DOA)
-            # self.DOA[90:270] = min(self.DOA)
-            if self.ula_direction == "Backward":
-                min_val = min(self.DOA)
-                self.DOA[thetas[0:90].astype(int)] = min_val
-                self.DOA[thetas[270:360].astype(int)] = min_val
 
         theta_0 = self.DOA_theta[np.argmax(self.DOA)]
 
@@ -983,55 +956,16 @@ def gen_scanning_vectors(M, DOA_inter_elem_space, type, offset):
         0, 359, 360
     )  # Remember to change self.DOA_thetas too, we didn't include that in this function due to memoization cannot work with arrays
     if type == "UCA":
-        # convert UCA inter element spacing back to its radius
         to_r = 1.0 / (np.sqrt(2.0) * np.sqrt(1.0 - np.cos(2.0 * np.pi / M)))
         r = DOA_inter_elem_space * to_r
         x = r * np.cos(2 * np.pi / M * np.arange(M))
         y = -r * np.sin(2 * np.pi / M * np.arange(M))  # For this specific array only
-    elif "ULA":
-        x = np.zeros(M)
-        y = -np.arange(M) * DOA_inter_elem_space
 
         
     scanning_vectors = np.zeros((M, thetas.size), dtype=np.complex64)
     for i in range(thetas.size):
         scanning_vectors[:, i] = np.exp(
             1j * 2 * np.pi * (x * np.cos(np.deg2rad(thetas[i] + offset)) + y * np.sin(np.deg2rad(thetas[i] + offset)))
-        )
-
-    return np.ascontiguousarray(scanning_vectors)
-
-# @lru_cache(maxsize=32)
-@njit(fastmath=True, cache=True)
-def gen_scanning_vectors_custom(M, custom_x, custom_y):
-    thetas = np.linspace(
-        0, 359, 360
-    )  # Remember to change self.DOA_thetas too, we didn't include that in this function due to memoization cannot work with arrays
-
-    x = np.zeros(M, dtype=np.float32)
-    y = np.zeros(M, dtype=np.float32)
-
-    for i in range(len(custom_x)):
-        if i > M:
-            break
-        if custom_x[i] == "":
-            x[i] = 0
-        else:
-            x[i] = float(custom_x[i])
-
-    for i in range(len(custom_y)):
-        if i > M:
-            break
-        if custom_x[i] == "":
-            y[i] = 0
-        else:
-            y[i] = float(custom_y[i])
-
-    scanning_vectors = np.zeros((M, thetas.size), dtype=np.complex64)
-    complex_pi = 1j * 2 * np.pi
-    for i in range(thetas.size):
-        scanning_vectors[:, i] = np.exp(
-            complex_pi * (x * np.cos(np.deg2rad(thetas[i])) + y * np.sin(np.deg2rad(thetas[i])))
         )
 
     return np.ascontiguousarray(scanning_vectors)
