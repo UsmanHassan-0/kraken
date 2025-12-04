@@ -1,0 +1,53 @@
+.vscode/
+# --- Global Python ignores ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# --- Mypy cache (all projects) ---
+.mypy_cache/
+
+# --- Heimdall DAQ firmware: logs, artifacts, and caches ---
+heimdall_daq_fw/Firmware/_logs/*.log
+heimdall_daq_fw/Firmware/_logs/*.html
+
+# Ignore all data_control contents except iq_track_lock
+heimdall_daq_fw/Firmware/_data_control/*
+!heimdall_daq_fw/Firmware/_data_control/iq_track_lock
+
+# Test vectors
+heimdall_daq_fw/Firmware/_test_vectors/*.iq
+
+# C build artifacts in _daq_core
+heimdall_daq_fw/Firmware/_daq_core/*.out
+heimdall_daq_fw/Firmware/_daq_core/*.o
+heimdall_daq_fw/Firmware/_daq_core/*.a
+
+# Python caches in Heimdall firmware
+heimdall_daq_fw/Firmware/_daq_core/__pycache__/*
+heimdall_daq_fw/Firmware/_testing/unit_test/__pycache__/*
+heimdall_daq_fw/Firmware/_testing/__pycache__/*
+heimdall_daq_fw/Firmware/__pycache__/*
+
+# Heimdall testing logs
+heimdall_daq_fw/Firmware/_testing/test_logs/*.log
+heimdall_daq_fw/Firmware/_testing/test_logs/*.html
+
+# --- Kraken-to-TAK-Python: virtual environment ---
+Kraken-to-TAK-Python/env/
+
+# --- KrakenSDR DOA Node.js bits ---
+# Only ignore node_modules and CSVs inside the _nodejs folder
+krakensdr_doa/_nodejs/node_modules/
+krakensdr_doa/_nodejs/*.csv
+
+# --- KrakenSDR DOA logs, IDE files, temp files ---
+krakensdr_doa/ui.log
+krakensdr_doa/server.log
+krakensdr_doa/.idea/
+krakensdr_doa/_android_web/
+krakensdr_doa/_share/
+krakensdr_doa/settings.json*
+krakensdr_doa/*.patch
+krakensdr_doa/*.bak
