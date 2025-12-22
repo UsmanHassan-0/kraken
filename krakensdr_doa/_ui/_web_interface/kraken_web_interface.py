@@ -9,7 +9,6 @@ import numpy as np
 from variables import (
     settings_file_path,
     dsp_settings,
-    DEFAULT_MAPPING_SERVER_ENDPOINT,
     AUTO_GAIN_VALUE,
     INVALID_SETTINGS_FILE_TIMESTAMP,
 )
@@ -71,9 +70,6 @@ class WebInterface:
         )
         self.module_receiver.rec_ip_addr = dsp_settings.get("default_ip", "0.0.0.0")
 
-        # Remote Control
-        self.remote_control = dsp_settings.get("en_remote_control", False)
-
         self.module_signal_processor = SignalProcessor(
             data_que=self.sp_data_que, module_receiver=self.module_receiver, logging_level=self.logging_level
         )
@@ -118,25 +114,6 @@ class WebInterface:
 
         self.module_signal_processor.en_DOA_estimation = dsp_settings.get("en_doa", True)
         self.module_signal_processor.DOA_decorrelation_method = dsp_settings.get("doa_decorrelation_method", "Off")
-
-        # Output Data format.
-        self.module_signal_processor.DOA_data_format = dsp_settings.get("doa_data_format", "Kraken App")
-
-        # Station Information
-        self.module_signal_processor.station_id = dsp_settings.get("station_id", "NOCALL")
-        self.location_source = dsp_settings.get("location_source", "None")
-        self.module_signal_processor.latitude = dsp_settings.get("latitude", 0.0)
-        self.module_signal_processor.longitude = dsp_settings.get("longitude", 0.0)
-        self.module_signal_processor.heading = dsp_settings.get("heading", 0.0)
-        self.module_signal_processor.fixed_heading = dsp_settings.get("gps_fixed_heading", False)
-        self.module_signal_processor.gps_min_speed_for_valid_heading = dsp_settings.get("gps_min_speed", 2)
-        self.module_signal_processor.gps_min_duration_for_valid_heading = dsp_settings.get("gps_min_speed_duration", 3)
-
-        # Kraken Pro Remote Key
-        self.module_signal_processor.krakenpro_key = dsp_settings.get("krakenpro_key", "0ae4ca6b3")
-
-        # Mapping Server URL
-        self.mapping_server_url = dsp_settings.get("mapping_server_url", DEFAULT_MAPPING_SERVER_ENDPOINT)
 
         # VFO Configuration
         self.module_signal_processor.spectrum_fig_type = dsp_settings.get("spectrum_calculation", "Single")
@@ -281,9 +258,6 @@ class WebInterface:
         data["data_interface"] = dsp_settings.get("data_interface", "shmem")
         data["default_ip"] = dsp_settings.get("default_ip", "0.0.0.0")
 
-        # Remote Control
-        data["en_remote_control"] = self.remote_control
-
         # DOA Estimation
         data["en_doa"] = self.module_signal_processor.en_DOA_estimation
         data["ant_arrangement"] = self.module_signal_processor.DOA_ant_alignment
@@ -309,23 +283,6 @@ class WebInterface:
         data["en_hw_check"] = dsp_settings.get("en_hw_check", 0)
         data["logging_level"] = dsp_settings.get("logging_level", 5)
         data["disable_tooltips"] = dsp_settings.get("disable_tooltips", 0)
-
-        # Output Data format. XML for Kerberos, CSV for Kracken, JSON future
-        # XML, CSV, or JSON
-        data["doa_data_format"] = self.module_signal_processor.DOA_data_format
-
-        # Station Information
-        data["station_id"] = self.module_signal_processor.station_id
-        data["location_source"] = self.location_source
-        data["latitude"] = self.module_signal_processor.latitude
-        data["longitude"] = self.module_signal_processor.longitude
-        data["heading"] = self.module_signal_processor.heading
-        data["krakenpro_key"] = self.module_signal_processor.krakenpro_key
-        data["mapping_server_url"] = self.mapping_server_url
-        data["rdf_mapper_server"] = self.module_signal_processor.RDF_mapper_server
-        data["gps_fixed_heading"] = self.module_signal_processor.fixed_heading
-        data["gps_min_speed"] = self.module_signal_processor.gps_min_speed_for_valid_heading
-        data["gps_min_speed_duration"] = self.module_signal_processor.gps_min_duration_for_valid_heading
 
         # VFO Information
         data["spectrum_calculation"] = self.module_signal_processor.spectrum_fig_type
@@ -362,9 +319,6 @@ class WebInterface:
         data["data_interface"] = dsp_settings.get("data_interface", "shmem")
         data["default_ip"] = dsp_settings.get("default_ip", "0.0.0.0")
 
-        # Remote Control
-        data["en_remote_control"] = False
-
         # DOA Estimation
         data["en_doa"] = True
         data["ant_arrangement"] = "UCA"
@@ -390,23 +344,6 @@ class WebInterface:
         data["en_hw_check"] = 0
         data["logging_level"] = 5
         data["disable_tooltips"] = 0
-
-        # Output Data format. XML for Kerberos, CSV for Kracken, JSON future
-        # XML, CSV, or JSON
-        data["doa_data_format"] = "Kraken App"
-
-        # Station Information
-        data["station_id"] = "NOCALL"
-        data["location_source"] = "None"
-        data["latitude"] = 0
-        data["longitude"] = 0
-        data["heading"] = 0
-        data["krakenpro_key"] = "cb97235a"
-        data["mapping_server_url"] = "wss://map.krakenrf.com:2096"
-        data["rdf_mapper_server"] = "http://MY_RDF_MAPPER_SERVER.com/save.php"
-        data["gps_fixed_heading"] = False
-        data["gps_min_speed"] = 2
-        data["gps_min_speed_duration"] = 3
 
         # VFO Information
         data["spectrum_calculation"] = "Single"

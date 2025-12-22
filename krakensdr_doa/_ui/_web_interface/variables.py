@@ -46,7 +46,6 @@ daq_config_filename = os.path.join(daq_subsystem_path, "daq_chain_config.ini")
 receiver_path = os.path.join(root_path, "_sdr/_receiver")
 signal_processor_path = os.path.join(root_path, "_sdr/_signal_processing")
 ui_path = os.path.join(root_path, "_ui")
-tak_folder_exists = os.path.exists(os.path.join(os.path.dirname(root_path), "Kraken-to-TAK-Python"))
 
 sys.path.insert(0, receiver_path)
 sys.path.insert(0, signal_processor_path)
@@ -117,8 +116,6 @@ DOA_METHODS = [
 ]
 
 HZ_TO_MHZ = 1.0e-6
-
-DEFAULT_MAPPING_SERVER_ENDPOINT = "wss://map.krakenrf.com:2096"
 
 AUTO_GAIN_VALUE = -100.0
 

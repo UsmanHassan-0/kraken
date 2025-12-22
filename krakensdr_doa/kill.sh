@@ -12,7 +12,3 @@ fi
 sudo kill -${KILL_SIGNAL} $(ps ax | grep ".*[p]ython3 .*_ui/_web_interface/app.py" | awk '{print $1}') 2> /dev/null
 # Kill PHP processes
 sudo kill -${KILL_SIGNAL} $(ps ax | grep "[p]hp" | awk '{print $1}') 2> /dev/null
-# Kill only this app's Node.js process (use TERM to avoid RT signals upsetting the terminal)
-sudo pkill -TERM -f "_nodejs/index.js" 2> /dev/null
-# Kill KrakenToTAK.py if running
-sudo pkill -f "python.*KrakenToTAK.py" 2> /dev/null

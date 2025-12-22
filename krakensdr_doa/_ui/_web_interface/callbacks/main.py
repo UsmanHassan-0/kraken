@@ -16,15 +16,7 @@ from kraken_sdr_receiver import ReceiverRTLSDR
 from kraken_sdr_signal_processor import SignalProcessor, xi
 from kraken_web_config import write_config_file_dict
 from kraken_web_spectrum import init_spectrum_fig
-from utils import (
-    fetch_dsp_data,
-    fetch_gps_data,
-    is_float,
-    is_int,
-    read_config_file_dict,
-    set_clicked,
-    settings_change_watcher,
-)
+from utils import fetch_dsp_data, is_float, is_int, read_config_file_dict, set_clicked, settings_change_watcher
 from variables import (
     DECORRELATION_OPTIONS,
     DOA_METHODS,
@@ -48,10 +40,8 @@ from variables import (
 def func(client, connect):
     if connect and len(app.clients) == 1:
         fetch_dsp_data(app, web_interface, spectrum_fig, waterfall_fig)
-        fetch_gps_data(app, web_interface)
     elif not connect and len(app.clients) == 0:
         web_interface.dsp_timer.cancel()
-        web_interface.gps_timer.cancel()
 
 
 @app.callback_shared(
@@ -86,181 +76,6 @@ def send_recorded_file(n_clicks):
             )
         )
     )
-
-
-# Set DOA Output Format
-@app.callback_shared(None, [Input(component_id="doa_format_type", component_property="value")])
-def set_doa_format(doa_format):
-    web_interface.module_signal_processor.DOA_data_format = doa_format
-    web_interface.save_configuration()
-
-
-# Update Station ID
-@app.callback_shared(None, [Input(component_id="station_id_input", component_property="value")])
-def set_station_id(station_id):
-    web_interface.module_signal_processor.station_id = station_id
-    web_interface.save_configuration()
-
-
-@app.callback_shared(None, [Input(component_id="krakenpro_key", component_property="value")])
-def set_kraken_pro_key(key):
-    web_interface.module_signal_processor.krakenpro_key = key
-    web_interface.save_configuration()
-
-
-@app.callback_shared(None, [Input(component_id="rdf_mapper_server_address", component_property="value")])
-def set_rdf_mapper_server(url):
-    web_interface.module_signal_processor.RDF_mapper_server = url
-    web_interface.save_configuration()
-
-
-# Enable GPS Relevant fields
-
-
-@app.callback(
-    [Output("fixed_heading_div", "style"), Output("gps_status_info", "style")], [Input("loc_src_dropdown", "value")]
-)
-def toggle_gps_fields(toggle_value):
-    if toggle_value == "gpsd":
-        return [{"display": "block"}, {"display": "block"}]
-    else:
-        return [{"display": "none"}, {"display": "none"}]
-
-
-# Enable of Disable Kraken Pro Key Box
-@app.callback(
-    [Output("krakenpro_field", "style"), Output("rdf_mapper_server_address_field", "style")],
-    [Input("doa_format_type", "value")],
-)
-def toggle_kraken_pro_key(doa_format_type):
-    kraken_pro_field_style = {"display": "block"} if doa_format_type == "Kraken Pro Remote" else {"display": "none"}
-    rdf_mapper_server_address_field_style = (
-        {"display": "block"}
-        if doa_format_type == "RDF Mapper" or doa_format_type == "Full POST"
-        else {"display": "none"}
-    )
-    return kraken_pro_field_style, rdf_mapper_server_address_field_style
-
-
-# Enable or Disable Heading Input Fields
-@app.callback(
-    Output("heading_field", "style"),
-    [
-        Input("loc_src_dropdown", "value"),
-        Input(component_id="fixed_heading_check", component_property="value"),
-    ],
-    [State("heading_input", component_property="value")],
-)
-def toggle_heading_info(static_loc, fixed_heading, heading):
-    if static_loc == "Static":
-        web_interface.module_signal_processor.fixed_heading = True
-        web_interface.module_signal_processor.heading = heading
-        return {"display": "block"}
-    elif static_loc == "gpsd" and fixed_heading:
-        web_interface.module_signal_processor.heading = heading
-        return {"display": "block"}
-    elif static_loc == "gpsd" and not fixed_heading:
-        web_interface.module_signal_processor.fixed_heading = False
-        return {"display": "none"}
-    elif static_loc == "None":
-        web_interface.module_signal_processor.fixed_heading = False
-        return {"display": "none"}
-    else:
-        return {"display": "none"}
-
-
-# Enable or Disable Location Input Fields
-@app.callback(Output("location_fields", "style"), [Input("loc_src_dropdown", "value")])
-def toggle_location_info(toggle_value):
-    web_interface.location_source = toggle_value
-    web_interface.save_configuration()
-    if toggle_value == "Static":
-        return {"display": "block"}
-    else:
-        return {"display": "none"}
-
-
-# Enable or Disable Location Input Fields
-@app.callback(
-    Output("min_speed_heading_fields", "style"),
-    [Input("loc_src_dropdown", "value"), Input("fixed_heading_check", "value")],
-)
-def toggle_min_speed_heading_filter(toggle_value, fixed_heading):
-    web_interface.location_source = toggle_value
-    web_interface.save_configuration()
-    if toggle_value == "gpsd" and not fixed_heading:
-        return {"display": "block"}
-    else:
-        return {"display": "none"}
-
-
-# Set location data
-
-
-@app.callback_shared(
-    None,
-    [
-        Input(component_id="latitude_input", component_property="value"),
-        Input(component_id="longitude_input", component_property="value"),
-        Input("loc_src_dropdown", "value"),
-    ],
-)
-def set_static_location(lat, lon, toggle_value):
-    if toggle_value == "Static":
-        web_interface.module_signal_processor.latitude = lat
-        web_interface.module_signal_processor.longitude = lon
-        web_interface.save_configuration()
-
-
-# Enable Fixed Heading
-@app.callback(None, [Input(component_id="fixed_heading_check", component_property="value")])
-def set_fixed_heading(fixed):
-    if fixed:
-        web_interface.module_signal_processor.fixed_heading = True
-    else:
-        web_interface.module_signal_processor.fixed_heading = False
-    web_interface.save_configuration()
-
-
-# Set heading data
-@app.callback_shared(None, [Input(component_id="heading_input", component_property="value")])
-def set_static_heading(heading):
-    web_interface.module_signal_processor.heading = heading
-    web_interface.save_configuration()
-
-
-# Set minimum speed for trustworthy GPS heading
-@app.callback_shared(None, [Input(component_id="min_speed_input", component_property="value")])
-def set_min_speed_for_valid_gps_heading(min_speed):
-    web_interface.module_signal_processor.gps_min_speed_for_valid_heading = min_speed
-    web_interface.save_configuration()
-
-
-# Set minimum speed duration for trustworthy GPS heading
-@app.callback_shared(None, [Input(component_id="min_speed_duration_input", component_property="value")])
-def set_min_speed_duration_for_valid_gps_heading(min_speed_duration):
-    web_interface.module_signal_processor.gps_min_duration_for_valid_heading = min_speed_duration
-    web_interface.save_configuration()
-
-
-# Enable GPS (note that we need this to fire on load, so we cannot use callback_shared!)
-@app.callback(
-    [Output("gps_status", "children"), Output("gps_status", "style")],
-    [Input("loc_src_dropdown", "value")],
-)
-def enable_gps(toggle_value):
-    if toggle_value == "gpsd":
-        status = web_interface.module_signal_processor.enable_gps()
-        if status:
-            web_interface.module_signal_processor.usegps = True
-            web_interface.save_configuration()
-            return ["Connected", {"color": "#7ccc63"}]
-        else:
-            return ["Error", {"color": "#e74c3c"}]
-    else:
-        web_interface.module_signal_processor.usegps = False
-        web_interface.save_configuration()
-        return ["-", {"color": "white"}]
 
 
 @app.callback_shared(None, web_interface.vfo_cfg_inputs)
@@ -966,14 +781,6 @@ def settings_change_refresh(toggle_value, pathname):
                 "custom_array_y_meters": {
                     "value": ",".join(["%.2f" % num for num in web_interface.custom_array_y_meters])
                 },
-                "station_id_input": {"value": web_interface.module_signal_processor.station_id},
-                "loc_src_dropdown": {"value": web_interface.location_source},
-                "latitude_input": {"value": web_interface.module_signal_processor.latitude},
-                "longitude_input": {"value": web_interface.module_signal_processor.longitude},
-                "heading_input": {"value": web_interface.module_signal_processor.heading},
-                "krakenpro_key": {"value": web_interface.module_signal_processor.krakenpro_key},
-                "rdf_mapper_server_address": {"value": web_interface.module_signal_processor.RDF_mapper_server},
-                "doa_format_type": {"value": web_interface.module_signal_processor.DOA_data_format},
                 "spectrum_fig_type": {"value": web_interface.module_signal_processor.spectrum_fig_type},
                 "vfo_mode": {"value": web_interface.module_signal_processor.vfo_mode},
                 "vfo_default_squelch_mode": {"value": web_interface.module_signal_processor.vfo_default_squelch_mode},
@@ -1016,25 +823,6 @@ def settings_change_refresh(toggle_value, pathname):
         web_interface.needs_refresh = False
 
     return Output("dummy_output", "children", "")
-
-
-app.clientside_callback(
-    """
-    function(n_clicks) {
-        if (n_clicks > 0) {
-            var currentURL = window.location.href;
-            var newURL = new URL(currentURL);
-            newURL.port = '8000';  // Set the new port
-            newURL.pathname = '/';  // Set the path to root
-            window.open(newURL.toString(), '_blank');  // Open the new URL in a new tab/window
-        }
-        return "";
-    }
-    """,
-    Output("header_tak_dummy", "children"),
-    [Input("header_tak", "n_clicks")],
-)
-
 
 @app.callback(
     None,
@@ -1124,18 +912,6 @@ def reconfig_daq_chain(input_value, freq, gain):
     en_DOA_estimation = web_interface.module_signal_processor.en_DOA_estimation
     doa_decorrelation_method = web_interface.module_signal_processor.DOA_decorrelation_method
     ula_direction = web_interface.module_signal_processor.ula_direction
-
-    doa_format = web_interface.module_signal_processor.DOA_data_format
-    doa_station_id = web_interface.module_signal_processor.station_id
-    doa_lat = web_interface.module_signal_processor.latitude
-    doa_lon = web_interface.module_signal_processor.longitude
-    doa_fixed_heading = web_interface.module_signal_processor.fixed_heading
-    doa_heading = web_interface.module_signal_processor.heading
-    # alt
-    # speed
-    doa_hasgps = web_interface.module_signal_processor.hasgps
-    doa_usegps = web_interface.module_signal_processor.usegps
-    doa_gps_connected = web_interface.module_signal_processor.gps_connected
     logging_level = web_interface.logging_level
     data_interface = web_interface.data_interface
 
@@ -1157,16 +933,6 @@ def reconfig_daq_chain(input_value, freq, gain):
     web_interface.module_signal_processor.en_DOA_estimation = en_DOA_estimation
     web_interface.module_signal_processor.DOA_decorrelation_method = doa_decorrelation_method
     web_interface.module_signal_processor.ula_direction = ula_direction
-
-    web_interface.module_signal_processor.DOA_data_format = doa_format
-    web_interface.module_signal_processor.station_id = doa_station_id
-    web_interface.module_signal_processor.latitude = doa_lat
-    web_interface.module_signal_processor.longitude = doa_lon
-    web_interface.module_signal_processor.fixed_heading = doa_fixed_heading
-    web_interface.module_signal_processor.heading = doa_heading
-    web_interface.module_signal_processor.hasgps = doa_hasgps
-    web_interface.module_signal_processor.usegps = doa_usegps
-    web_interface.module_signal_processor.gps_connected = doa_gps_connected
 
     # This must be here, otherwise the gains dont reinit properly?
     web_interface.module_receiver.M = web_interface.daq_ini_cfg_dict["num_ch"]

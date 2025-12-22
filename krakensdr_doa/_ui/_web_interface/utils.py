@@ -16,7 +16,6 @@ from variables import (
     AGC_WARNING_DISABLED_STYLE,
     AGC_WARNING_ENABLED_STYLE,
     AUTO_GAIN_VALUE,
-    DEFAULT_MAPPING_SERVER_ENDPOINT,
     HZ_TO_MHZ,
     daq_config_filename,
     doa_fig,
@@ -229,19 +228,6 @@ def fetch_dsp_data(app, web_interface, spectrum_fig, waterfall_fig):
     web_interface.dsp_timer.start()
 
 
-def fetch_gps_data(app, web_interface):
-    app.push_mods(
-        {
-            "body_gps_latitude": {"children": web_interface.module_signal_processor.latitude},
-            "body_gps_longitude": {"children": web_interface.module_signal_processor.longitude},
-            "body_gps_heading": {"children": web_interface.module_signal_processor.heading},
-        }
-    )
-
-    web_interface.gps_timer = Timer(1, fetch_gps_data, args=(app, web_interface))
-    web_interface.gps_timer.start()
-
-
 def settings_change_watcher(web_interface, settings_file_path, last_attempt_failed=False):
     if os.path.exists(settings_file_path):
         last_changed_time = os.stat(settings_file_path).st_mtime
@@ -307,23 +293,6 @@ def settings_change_watcher(web_interface, settings_file_path, last_attempt_fail
                 )
                 web_interface.module_signal_processor.custom_array_y = web_interface.custom_array_y_meters / (
                     300 / web_interface.module_receiver.daq_center_freq
-                )
-
-                # Station Information
-                web_interface.module_signal_processor.station_id = dsp_settings.get("station_id", "NO-CALL")
-                web_interface.location_source = dsp_settings.get("location_source", "None")
-                web_interface.module_signal_processor.latitude = dsp_settings.get("latitude", 0.0)
-                web_interface.module_signal_processor.longitude = dsp_settings.get("longitude", 0.0)
-                web_interface.module_signal_processor.heading = dsp_settings.get("heading", 0.0)
-                web_interface.module_signal_processor.krakenpro_key = dsp_settings.get("krakenpro_key", 0.0)
-                web_interface.mapping_server_url = dsp_settings.get(
-                    "mapping_server_url", DEFAULT_MAPPING_SERVER_ENDPOINT
-                )
-                web_interface.module_signal_processor.RDF_mapper_server = dsp_settings.get(
-                    "rdf_mapper_server", "http://RDF_MAPPER_SERVER.com/save.php"
-                )
-                web_interface.module_signal_processor.DOA_data_format = dsp_settings.get(
-                    "doa_data_format", "Kraken App"
                 )
 
                 # VFO Configuration
@@ -540,13 +509,6 @@ def update_daq_status(app, web_interface):
         daq_max_amp_str = "{:.1f}".format(web_interface.max_amplitude)
         daq_avg_powers_str = web_interface.avg_powers
 
-    if web_interface.module_signal_processor.gps_status == "Connected":
-        gps_en_str = "Connected"
-        gps_en_str_style = {"color": "#7ccc63"}
-    else:
-        gps_en_str = web_interface.module_signal_processor.gps_status
-        gps_en_str_style = {"color": "#e74c3c"}
-
     app.push_mods(
         {
             "body_daq_update_rate": {"children": daq_update_rate_str},
@@ -567,7 +529,6 @@ def update_daq_status(app, web_interface):
             "body_daq_if_gain": {"children": web_interface.daq_if_gains},
             "body_max_amp": {"children": daq_max_amp_str},
             "body_avg_powers": {"children": daq_avg_powers_str},
-            "gps_status": {"children": gps_en_str},
         }
     )
 
@@ -580,7 +541,6 @@ def update_daq_status(app, web_interface):
             "body_daq_delay_sync": {"style": delay_sync_style},
             "body_daq_iq_sync": {"style": iq_sync_style},
             "body_daq_noise_source": {"style": noise_source_style},
-            "gps_status": {"style": gps_en_str_style},
         }
     )
 

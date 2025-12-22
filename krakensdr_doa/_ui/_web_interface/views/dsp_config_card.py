@@ -156,7 +156,6 @@ def get_dsp_config_card_layout():
                     dcc.Input(
                         id="array_offset",
                         value=web_interface.module_signal_processor.array_offset,
-                        # web_interface.module_signal_processor.station_id,
                         type="number",
                         className="field-body-textbox",
                         debounce=True,

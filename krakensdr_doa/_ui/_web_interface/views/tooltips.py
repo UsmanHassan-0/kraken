@@ -58,7 +58,7 @@ dsp_config_tooltips = html.Div(
                     "Choose which VFO channel is output to the DOA graphs and data stream. In the spectrum graph this chooses what VFO channel click to tune will move."
                 ),
                 html.P(
-                    "ALL - Outputs data from all active VFOs to the Kraken App / Kraken Pro App output data stream for simultaenous channel monitoring."
+                    "ALL - Outputs data from all active VFOs to the local output stream for simultaenous channel monitoring."
                 ),
                 html.P(
                     "Note that outputting more than 3 active VFOs on a Pi 4 may result in slow computation, resulting in intermittant signal squelch misses. To get around this, you can apply decimation to make computation more efficient."
@@ -169,15 +169,6 @@ dsp_config_tooltips = html.Div(
             placement="bottom",
             className="tooltip",
         ),
-        # Antenna Spacing
-        #    dbc.Tooltip([
-        #        html.P("When ULA is selected: Spacing between antenna elements"),
-        #        html.P("When UCA is selected: Radius of the circle on which the elements are placed")],
-        #        target="label_ant_spacing",
-        #        placement="bottom",
-        #        className="tooltip"
-        #        ),
-        # Enable F-B averaging
         dbc.Tooltip(
             [
                 html.P(
@@ -229,7 +220,7 @@ dsp_config_tooltips = html.Div(
             className="tooltip",
         ),
         dbc.Tooltip(
-            [html.P("The data output format for the file recording. Currently only Kraken App is available.")],
+            [html.P("The data output format for the file recording. This build provides only local output.")],
             target="data_format_label",
             placement="bottom",
             className="tooltip",
@@ -620,71 +611,6 @@ daq_ini_config_tooltips = html.Div(
             ],
             target="label_iq_adjust_time_delay_ns",
             placement="top",
-            className="tooltip",
-        ),
-    ]
-)
-
-station_parameters_tooltips = html.Div(
-    [
-        dbc.Tooltip(
-            [
-                html.P("Station ID"),
-                html.P("A useful name for your station."),
-                html.P("Allows Alpha-Numberic Characters and Hyphens (-)."),
-                html.P("All other chacters are replaced by hyphens."),
-            ],
-            target="station_id_label",
-            placement="bottom",
-            className="tooltip",
-        ),
-        dbc.Tooltip(
-            [
-                html.P("DOA Data Format"),
-                html.P(
-                    "Kraken/Pro & Kerberos App: Choose if you are outputting to the KrakenSDR Android App, KrakenSDR Pro, or Legacy KerberosSDR App"
-                ),
-                html.P("DF Aggregator: Use for DF Aggregator"),
-                html.P("RDF Mapper: Upload directly to an RDF Mapper server"),
-            ],
-            target="doa_format_label",
-            placement="bottom",
-            className="tooltip",
-        ),
-        dbc.Tooltip(
-            [
-                html.P("Location Source"),
-                html.P("None: Don't use location data, use this if you're only using the android app."),
-                html.P("Static: A fixed location for a stationary receiver."),
-                html.P("GPS: Uses gpsd and a USB gps. If this is greyed out, the gpsd python library is not installed"),
-            ],
-            target="location_src_label",
-            placement="bottom",
-            className="tooltip",
-        ),
-        dbc.Tooltip(
-            [
-                html.P("Fixed Heading"),
-                html.P("If you're getting location from a GPS, but aren't moving, use this to set a static heading."),
-                html.P("GPS Heading information is only reliable when you're moving."),
-            ],
-            target="fixed_heading_label",
-            placement="bottom",
-            className="tooltip",
-        ),
-        dbc.Tooltip(
-            [
-                html.P("Filter out unreliable heading"),
-                html.P("Most consumer-grade GPS modules require it to move to estimate heading."),
-                html.P("Typically those measurements are not reliable when speed is too low."),
-                html.P("Please set minimum speed and its minumum duration to filter out bogus heading readings."),
-                html.P(
-                    """Note that u-blox GPS modules might implement these logic internally, but it needs to be configured and activated."""
-                    """If you did so, then feel free to disable this filter by setting zero values."""
-                ),
-            ],
-            target="min_speed_heading_fields",
-            placement="bottom",
             className="tooltip",
         ),
     ]

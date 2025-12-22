@@ -19,7 +19,6 @@ def get_recording_config_card_layout():
                     dcc.Input(
                         id="filename_input",
                         value=web_interface.module_signal_processor.data_recording_file_name,
-                        # web_interface.module_signal_processor.station_id,
                         type="text",
                         className="field-body-textbox",
                         debounce=True,
@@ -33,9 +32,9 @@ def get_recording_config_card_layout():
                     dcc.Dropdown(
                         id="data_format_type",
                         options=[
-                            {"label": "Kraken App", "value": "Kraken App"},
+                            {"label": "Local Output", "value": "Local"},
                         ],
-                        value="Kraken App",  # web_interface.module_signal_processor.DOA_data_format,
+                        value="Local",
                         style={"display": "inline-block"},
                         className="field-body",
                     ),
@@ -48,7 +47,6 @@ def get_recording_config_card_layout():
                     dcc.Input(
                         id="write_interval_input",
                         value=web_interface.module_signal_processor.write_interval,
-                        # web_interface.module_signal_processor.station_id,
                         type="text",
                         className="field-body-textbox",
                         debounce=True,

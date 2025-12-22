@@ -441,7 +441,7 @@ def get_daq_config_card_layout():
                         html.Div(
                             [
                                 html.Div(
-                                    "Require Track Lock Intervention (For Kerberos):",
+                                    "Require Track Lock Intervention:",
                                     className="field-label",
                                     id="label_require_track_lock",
                                 ),
