@@ -201,7 +201,7 @@ def restart_sw_btn(input_value):
     web_interface.logger.info("Restarting Software")
     root_path = os.path.dirname(os.path.dirname(os.path.dirname(current_path)))
     os.chdir(root_path)
-    subprocess.Popen(["bash", "kraken_doa_start.sh"])  # ,
+    subprocess.Popen(["bash", "kraken_start.sh"])  # ,
 
 
 @app.callback_shared(
@@ -230,7 +230,7 @@ def clear_cache_btn(input_value):
     web_interface.logger.info("Clearing Python and Numba Caches")
     root_path = os.path.dirname(os.path.dirname(os.path.dirname(current_path)))
     os.chdir(root_path)
-    subprocess.Popen(["bash", "kraken_doa_start.sh", "-c"])  # ,
+    subprocess.Popen(["bash", "kraken_start.sh", "-c"])  # ,
 
 
 @app.callback_shared(None, [Input("spectrum-graph", "clickData")])
