@@ -45,4 +45,6 @@ mkdir -p "${SHARE_DIR}" "${LOGS_GUI}" "${LOGS_DAQ}"
 ./util/sync_daq_logs.sh >/dev/null 2>/dev/null &
 
 echo "Web Interface running at 0.0.0.0:8080"
-python3 ui/web_interface/app.py >"${LOGS_GUI}/ui.log" 2>&1 &
+# Run the GUI with sudo so it can read root-owned FIFOs created by DAQ
+sudo -E env "PATH=$PATH" "PYTHONPATH=${PYTHONPATH-}" "CONDA_PREFIX=${CONDA_PREFIX-}" \
+  python3 ui/web_interface/app.py >"${LOGS_GUI}/ui.log" 2>&1 &
