@@ -44,7 +44,7 @@
 
 #define DC 127.5
 #define INI_FNAME "daq_chain_config.ini"
-#define FIR_COEFF "_data_control/fir_coeffs.txt"
+#define FIR_COEFF "data_control/fir_coeffs.txt"
 #define FATAL_ERR(l) log_fatal(l); return -1;
 #define CHK_MALLOC(m) if(m==NULL){log_fatal("Malloc failed, exiting.."); return -1;}
 /* 

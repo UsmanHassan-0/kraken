@@ -55,7 +55,7 @@
 #endif
 
 #define NUM_BUFF 8  // Number of buffers used in the circular, coherent read buffer
-#define CFN "_data_control/rec_control_fifo" // Receiver control FIFO name 
+#define CFN "data_control/rec_control_fifo" // Receiver control FIFO name 
 #define ASYNC_BUF_NUMBER 12// Number of buffers used by the asynchronous read 
 #define FS_CORRECTION_KEEP_LIMIT 0.008 // Above this ppm offset the tuning is not terminated after 1 cal. frame
 #define INI_FNAME "daq_chain_config.ini"

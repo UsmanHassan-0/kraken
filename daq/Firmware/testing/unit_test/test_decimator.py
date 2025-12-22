@@ -37,7 +37,7 @@ from scipy import signal
 current_path      = dirname(realpath(__file__))
 root_path         = dirname(dirname(current_path))
 daq_core_path     = join(root_path, "daq_core")
-data_control_path = join(root_path, "_data_control")
+data_control_path = join(root_path, "data_control")
 log_path          = join(root_path, "logs")
 unit_test_path    = join(root_path, "testing", "unit_test")
 test_logs_path    = join(root_path, "testing", "test_logs")

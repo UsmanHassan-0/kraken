@@ -63,7 +63,7 @@ class FIFO_rd_thread(Thread):
         Thread.__init__(self)
         self.M = ch_no
         self.logger=logging.getLogger(__name__)
-        self.ctr_fifo_descriptor = open("_data_control/rec_control_fifo", 'rb')
+        self.ctr_fifo_descriptor = open("data_control/rec_control_fifo", 'rb')
         if self.ctr_fifo_descriptor is not None:
             self.logger.debug("Control FIFO succesfully opened, waiting for ctr messages")
         else:
