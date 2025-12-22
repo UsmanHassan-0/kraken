@@ -4,8 +4,8 @@ set -euo pipefail
 
 # Resolve repository root based on this script's location
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DAQ_DIR="${REPO_ROOT}/heimdall_daq_fw/Firmware"
-DOA_DIR="${REPO_ROOT}/krakensdr_doa"
+DAQ_DIR="${REPO_ROOT}/daq/Firmware"
+DOA_DIR="${REPO_ROOT}/gui"
 
 # Stop DAQ
 cd "${DAQ_DIR}"
@@ -30,5 +30,5 @@ kill_procs() {
     fi
 }
 
-kill_procs ".*[p]ython3 .*_ui/_web_interface/app.py"
+kill_procs ".*[p]ython3 .*ui/web_interface/app.py"
 kill_procs "[p]hp"
