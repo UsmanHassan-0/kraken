@@ -47,7 +47,7 @@ class HWC():
         self.logger = logging.getLogger(__name__)
         self.log_level=0 # Set from the ini file        
         self.module_identifier = 6 # Inter-module message module identifier
-        self.track_lock_ctr_fname = "_data_control/iq_track_lock"
+        self.track_lock_ctr_fname = "data_control/iq_track_lock"
         self.track_lock_ctr_fd = None
         self.in_shmem_iface = None
         # Gain index:       0  1   2   3   4   5   6    7    8    9   10   11   12   13   14   15   16   17   18   19   20   21   22   23   24   25   26   27   28

@@ -71,8 +71,8 @@ class outShmemIface():
         else:
             bw_fifo_flags = os.O_RDONLY
         try:            
-            self.fw_ctr_fifo = os.open('_data_control/'+'fw_'+shmem_name, os.O_WRONLY)             
-            self.bw_ctr_fifo = os.open('_data_control/'+'bw_'+shmem_name, bw_fifo_flags)            
+            self.fw_ctr_fifo = os.open('data_control/'+'fw_'+shmem_name, os.O_WRONLY)             
+            self.bw_ctr_fifo = os.open('data_control/'+'bw_'+shmem_name, bw_fifo_flags)            
         except OSError as err:
             self.logger.critical("OS error: {0}".format(err))
             self.logger.critical("Failed to open control fifos")
@@ -146,8 +146,8 @@ class inShmemIface():
         self.buffers = []        
 
         try:            
-            self.fw_ctr_fifo = os.open('_data_control/'+'fw_'+shmem_name, os.O_RDONLY)
-            self.bw_ctr_fifo = os.open('_data_control/'+'bw_'+shmem_name, os.O_WRONLY)                         
+            self.fw_ctr_fifo = os.open('data_control/'+'fw_'+shmem_name, os.O_RDONLY)
+            self.bw_ctr_fifo = os.open('data_control/'+'bw_'+shmem_name, os.O_WRONLY)                         
         except OSError as err:
             self.logger.critical("OS error: {0}".format(err))
             self.logger.critical("Failed to open control fifos")

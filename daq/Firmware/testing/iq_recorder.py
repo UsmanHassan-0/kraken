@@ -46,7 +46,7 @@ class IQRecorder():
         """
         self.rec_ctr_fd = None 
         try:            
-            self.rec_ctr_fd = open("_data_control/rec_ctr", 'r')
+            self.rec_ctr_fd = open("data_control/rec_ctr", 'r')
         except:
             self.logger.error("Failed to open control file")
 
