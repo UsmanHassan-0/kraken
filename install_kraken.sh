@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Installer for the renamed Kraken repo (gui/ + daq/ layout).
-# Run this script from within the repo root.
+# Run this script from within the repo root, and from a shell where no conda env is already activated.
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_NAME="kraken"
@@ -60,20 +60,34 @@ if [[ ! -d "$HOME/miniforge3" ]]; then
 fi
 export PATH="$HOME/miniforge3/bin:$PATH"
 eval "$(conda shell.bash hook)"
-# Normalize condarc to avoid duplicate keys
-printf "auto_activate: false\n" > "$HOME/.condarc"
-conda config --set auto_activate false
+# Avoid MKL deactivate hook tripping on unset vars when using set -u
+export CONDA_MKL_INTERFACE_LAYER_BACKUP="${CONDA_MKL_INTERFACE_LAYER_BACKUP-}"
 if ! conda env list | grep -q "^$ENV_NAME "; then
   conda create -y -n "$ENV_NAME" python=3.9.7
 fi
 conda activate "$ENV_NAME"
 
 echo "[5/8] Python dependencies"
-# Base numeric stack (safe to re-run)
-conda install -y scipy==1.9.3 numba==0.56.4 configparser pyzmq pandas orjson matplotlib requests scikit-image scikit-rf gitpython "blas=*=mkl" -c conda-forge
+# Always (re)apply pinned conda stack; conda will skip already-satisfied specs.
+CONDA_PKGS=(
+  scipy==1.9.3
+  numba==0.56.4
+  configparser
+  pyzmq
+  pandas
+  orjson
+  matplotlib
+  requests
+  scikit-image
+  scikit-rf
+  gitpython
+  "blas=*=mkl"
+)
+echo "Ensuring conda packages: ${CONDA_PKGS[*]}"
+conda install -y -c conda-forge "${CONDA_PKGS[@]}"
 
-# Ensure pip deps are present (idempotent)
-declare -a PIP_PKGS=(
+# Always enforce pinned pip deps (idempotent).
+PIP_PKGS=(
   "dash==1.20.0"
   "dash-bootstrap-components==0.13.1"
   "dash_devices==0.1.3"
@@ -84,20 +98,36 @@ declare -a PIP_PKGS=(
   "pyargus"
   "gpsd-py3"
 )
-
 missing=()
 for pkg in "${PIP_PKGS[@]}"; do
-  if ! python - <<PY >/dev/null 2>&1
-import pkg_resources, sys
-pkg_resources.require("${pkg}")
+  echo "Checking pip package: ${pkg}"
+  if python - <<PY >/dev/null 2>&1
+import importlib, pkg_resources, sys
+req = "${pkg}"
+name = req.split("==")[0].replace("-", "_")
+try:
+    pkg_resources.require([req])
+    mod = importlib.import_module(name)
+    dists = [d for d in pkg_resources.working_set if d.key == name.replace("_", "-")]
+    if len(dists) != 1:
+        raise RuntimeError(f"expected 1 dist, found {len(dists)}")
+    print(f"  OK: {req} at {getattr(mod, '__file__', 'n/a')} (dist={dists[0]})")
+except Exception:
+    sys.exit(1)
 PY
   then
+    :
+  else
+    echo "  missing or not importable -> will install"
     missing+=("${pkg}")
   fi
 done
 
 if (( ${#missing[@]} )); then
-  pip install "${missing[@]}"
+  echo "Installing missing pip packages: ${missing[*]}"
+  python -m pip install --upgrade "${missing[@]}"
+else
+  echo "All pip packages present"
 fi
 
 echo "[6/8] Ensure DAQ build paths exist"
