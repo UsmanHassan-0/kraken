@@ -10,8 +10,7 @@ __pycache__/
 .mypy_cache/
 
 # DAQ firmware: logs, artifacts, and caches
-*.log
-daq/Firmware/logs/**
+daq/Firmware/logs/*.log
 daq/Firmware/data_control/*
 !daq/Firmware/data_control/iq_track_lock
 daq/Firmware/_test_vectors/*.iq
@@ -22,17 +21,16 @@ daq/Firmware/daq_core/__pycache__/*
 daq/Firmware/testing/unit_test/__pycache__/*
 daq/Firmware/testing/__pycache__/*
 daq/Firmware/__pycache__/*
-daq/Firmware/testing/test_logs/*.log
 daq/Firmware/testing/test_logs/*.html
 
 # Kraken-to-TAK-Python: virtual environment
 Kraken-to-TAK-Python/env/
 
 # GUI logs and temp files
-gui/logs/**
 gui/.idea/
 gui/_android_web/
 gui/share/settings.json*
 gui/share/status.json*
 gui/*.patch
 gui/*.bak
+logs/**
