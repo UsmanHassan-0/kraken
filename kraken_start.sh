@@ -25,6 +25,7 @@ fi
 
 DAQ_DIR="${REPO_ROOT}/daq/Firmware"
 DOA_DIR="${REPO_ROOT}/gui"
+LOG_ROOT="${REPO_ROOT}/logs"
 
 # Start DAQ
 cd "${DAQ_DIR}"
@@ -34,8 +35,8 @@ sleep 1
 # Start Web UI
 cd "${DOA_DIR}"
 
-LOGS_GUI="logs/gui"
-LOGS_DAQ="logs/daq"
+LOGS_GUI="${LOG_ROOT}/gui"
+LOGS_DAQ="${LOG_ROOT}/daq"
 SHARE_DIR="share"
 
 mkdir -p "${SHARE_DIR}" "${LOGS_GUI}" "${LOGS_DAQ}"
