@@ -1,37 +1,24 @@
 .vscode/
-.idea/
 
-# Python cache
-__pycache__/
+# Common caches/artifacts
 **/__pycache__/
 *.py[cod]
 *.pyo
 *.pyd
 .mypy_cache/
 *.ini
+*.log
+*.csv
+*.o
+*.a
+*.out
 
-# DAQ firmware: logs, artifacts, and caches
-daq/Firmware/logs/*.log
+# DAQ firmware artifacts and caches
 daq/Firmware/data_control/*
 !daq/Firmware/data_control/iq_track_lock
 daq/Firmware/_test_vectors/*.iq
-daq/Firmware/daq_core/*.out
-daq/Firmware/daq_core/*.o
-daq/Firmware/daq_core/*.a
-daq/Firmware/daq_core/__pycache__/*
-daq/Firmware/testing/unit_test/__pycache__/*
-daq/Firmware/testing/__pycache__/*
-daq/Firmware/__pycache__/*
 daq/Firmware/testing/test_logs/*.html
 
-# Kraken-to-TAK-Python: virtual environment
-Kraken-to-TAK-Python/env/
-
 # GUI logs and temp files
-gui/.idea/
-gui/_android_web/
 gui/share/settings.json*
 gui/share/status.json*
-gui/*.patch
-gui/*.bak
-logs/**
