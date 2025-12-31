@@ -263,37 +263,18 @@ def settings_change_watcher(web_interface, settings_file_path, last_attempt_fail
                     "doa_decorrelation_method", 0
                 )
 
-                web_interface.module_signal_processor.DOA_ant_alignment = dsp_settings.get("ant_arrangement", "ULA")
+                web_interface.module_signal_processor.DOA_ant_alignment = "UCA"
                 web_interface.ant_spacing_meters = float(dsp_settings.get("ant_spacing_meters", 0.5))
 
                 wavelength = 300 / web_interface.daq_center_freq
-                if web_interface.module_signal_processor.DOA_ant_alignment == "UCA":
-                    web_interface.module_signal_processor.DOA_UCA_radius_m = web_interface.ant_spacing_meters
-                    # Convert RADIUS to INTERELEMENT SPACING
-                    inter_elem_spacing = (
-                        np.sqrt(2)
-                        * web_interface.ant_spacing_meters
-                        * np.sqrt(1 - np.cos(np.deg2rad(360 / web_interface.module_signal_processor.channel_number)))
-                    )
-                    web_interface.module_signal_processor.DOA_inter_elem_space = inter_elem_spacing / wavelength
-                else:
-                    web_interface.module_signal_processor.DOA_UCA_radius_m = np.Infinity
-                    web_interface.module_signal_processor.DOA_inter_elem_space = (
-                        web_interface.ant_spacing_meters / wavelength
-                    )
-
-                web_interface.custom_array_x_meters = np.float_(
-                    dsp_settings.get("custom_array_x_meters", "0.1,0.2,0.3,0.4,0.5").split(",")
+                web_interface.module_signal_processor.DOA_UCA_radius_m = web_interface.ant_spacing_meters
+                # Convert RADIUS to INTERELEMENT SPACING
+                inter_elem_spacing = (
+                    np.sqrt(2)
+                    * web_interface.ant_spacing_meters
+                    * np.sqrt(1 - np.cos(np.deg2rad(360 / web_interface.module_signal_processor.channel_number)))
                 )
-                web_interface.custom_array_y_meters = np.float_(
-                    dsp_settings.get("custom_array_y_meters", "0.1,0.2,0.3,0.4,0.5").split(",")
-                )
-                web_interface.module_signal_processor.custom_array_x = web_interface.custom_array_x_meters / (
-                    300 / web_interface.module_receiver.daq_center_freq
-                )
-                web_interface.module_signal_processor.custom_array_y = web_interface.custom_array_y_meters / (
-                    300 / web_interface.module_receiver.daq_center_freq
-                )
+                web_interface.module_signal_processor.DOA_inter_elem_space = inter_elem_spacing / wavelength
 
                 # VFO Configuration
                 web_interface.module_signal_processor.spectrum_fig_type = dsp_settings.get(
@@ -333,13 +314,15 @@ def settings_change_watcher(web_interface, settings_file_path, last_attempt_fail
                     )
                     web_interface.module_signal_processor.vfo_iq[i] = dsp_settings.get("vfo_iq_" + str(i), "Default")
 
-                web_interface.module_signal_processor.DOA_algorithm = dsp_settings.get("doa_method", "MUSIC")
+                doa_method = dsp_settings.get("doa_method", "MUSIC")
+                if doa_method not in {"Bartlett", "Capon", "MEM", "TNA", "MUSIC"}:
+                    doa_method = "MUSIC"
+                web_interface.module_signal_processor.DOA_algorithm = doa_method
                 web_interface.module_signal_processor.DOA_expected_num_of_sources = dsp_settings.get(
                     "expected_num_of_sources", 1
                 )
                 web_interface._doa_fig_type = dsp_settings.get("doa_fig_type", "Linear")
                 web_interface.module_signal_processor.doa_measure = web_interface._doa_fig_type
-                web_interface.module_signal_processor.ula_direction = dsp_settings.get("ula_direction", "Both")
                 web_interface.module_signal_processor.array_offset = int(dsp_settings.get("array_offset", 0))
 
                 freq_delta = web_interface.daq_center_freq - center_freq

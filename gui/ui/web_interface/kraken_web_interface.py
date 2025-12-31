@@ -73,43 +73,26 @@ class WebInterface:
         self.module_signal_processor = SignalProcessor(
             data_que=self.sp_data_que, module_receiver=self.module_receiver, logging_level=self.logging_level
         )
-        self.module_signal_processor.DOA_ant_alignment = dsp_settings.get("ant_arrangement", "UCA")
+        self.module_signal_processor.DOA_ant_alignment = "UCA"
         self.module_signal_processor.doa_measure = self._doa_fig_type
         self.ant_spacing_meters = float(dsp_settings.get("ant_spacing_meters", 0.21))
 
-        if self.module_signal_processor.DOA_ant_alignment == "UCA":
-            self.module_signal_processor.DOA_UCA_radius_m = self.ant_spacing_meters
-            # Convert RADIUS to INTERELEMENT SPACING
-            inter_elem_spacing = (
-                np.sqrt(2)
-                * self.ant_spacing_meters
-                * np.sqrt(1 - np.cos(np.deg2rad(360 / self.module_signal_processor.channel_number)))
-            )
-            self.module_signal_processor.DOA_inter_elem_space = inter_elem_spacing / (
-                300 / float(dsp_settings.get("center_freq", 100.0))
-            )
-        else:
-            self.module_signal_processor.DOA_UCA_radius_m = np.Infinity
-            self.module_signal_processor.DOA_inter_elem_space = self.ant_spacing_meters / (
-                300 / float(dsp_settings.get("center_freq", 100.0))
-            )
-
-        self.module_signal_processor.ula_direction = dsp_settings.get("ula_direction", "Both")
-        self.module_signal_processor.DOA_algorithm = dsp_settings.get("doa_method", "MUSIC")
+        self.module_signal_processor.DOA_UCA_radius_m = self.ant_spacing_meters
+        # Convert RADIUS to INTERELEMENT SPACING
+        inter_elem_spacing = (
+            np.sqrt(2)
+            * self.ant_spacing_meters
+            * np.sqrt(1 - np.cos(np.deg2rad(360 / self.module_signal_processor.channel_number)))
+        )
+        self.module_signal_processor.DOA_inter_elem_space = inter_elem_spacing / (
+            300 / float(dsp_settings.get("center_freq", 100.0))
+        )
+        doa_method = dsp_settings.get("doa_method", "MUSIC")
+        if doa_method not in {"Bartlett", "Capon", "MEM", "TNA", "MUSIC"}:
+            doa_method = "MUSIC"
+        self.module_signal_processor.DOA_algorithm = doa_method
         self.module_signal_processor.DOA_expected_num_of_sources = dsp_settings.get("expected_num_of_sources", 1)
 
-        self.custom_array_x_meters = np.float_(
-            dsp_settings.get("custom_array_x_meters", "0.21,0.06,-0.17,-0.17,0.07").split(",")
-        )
-        self.custom_array_y_meters = np.float_(
-            dsp_settings.get("custom_array_y_meters", "0.00,-0.20,-0.12,0.12,0.20").split(",")
-        )
-        self.module_signal_processor.custom_array_x = self.custom_array_x_meters / (
-            300 / float(dsp_settings.get("center_freq", 100.0))
-        )
-        self.module_signal_processor.custom_array_y = self.custom_array_y_meters / (
-            300 / float(dsp_settings.get("center_freq", 100.0))
-        )
         self.module_signal_processor.array_offset = int(dsp_settings.get("array_offset", 0))
 
         self.module_signal_processor.en_DOA_estimation = dsp_settings.get("en_doa", True)
@@ -261,11 +244,8 @@ class WebInterface:
         # DOA Estimation
         data["en_doa"] = self.module_signal_processor.en_DOA_estimation
         data["ant_arrangement"] = self.module_signal_processor.DOA_ant_alignment
-        data["ula_direction"] = self.module_signal_processor.ula_direction
         # self.module_signal_processor.DOA_inter_elem_space
         data["ant_spacing_meters"] = self.ant_spacing_meters
-        data["custom_array_x_meters"] = ",".join(["%.2f" % num for num in self.custom_array_x_meters])
-        data["custom_array_y_meters"] = ",".join(["%.2f" % num for num in self.custom_array_y_meters])
         data["array_offset"] = int(self.module_signal_processor.array_offset)
 
         data["doa_method"] = self.module_signal_processor.DOA_algorithm
@@ -322,11 +302,8 @@ class WebInterface:
         # DOA Estimation
         data["en_doa"] = True
         data["ant_arrangement"] = "UCA"
-        data["ula_direction"] = "Both"
         # self.module_signal_processor.DOA_inter_elem_space
         data["ant_spacing_meters"] = 0.21
-        data["custom_array_x_meters"] = "0.21,0.06,-0.17,-0.17,0.07"
-        data["custom_array_y_meters"] = "0.00,-0.20,-0.12,0.12,0.20"
         data["array_offset"] = 0
 
         data["doa_method"] = "MUSIC"

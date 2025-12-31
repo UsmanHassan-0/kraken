@@ -163,17 +163,10 @@ pow_noise_source_dB = -23 # Correlated noise signal from the internal source [dB
 """
     --> Antenna layout <-- [Test Case 4]
 """
-ant_config = "ULA"
-ula_d = 0.5 # Inter element spacing [lambda]
 uca_r = 1/(2*np.sqrt(2))
 
-if ant_config == "ULA":
-    ant_x = np.zeros(M)
-    ant_y = np.arange(M) * ula_d   
-    
-else: # UCA
-    ant_x = uca_r*np.cos(np.deg2rad(np.arange(M)*360/M)) 
-    ant_y = -uca_r*np.sin(np.deg2rad(np.arange(M)*360/M))    
+ant_x = uca_r*np.cos(np.deg2rad(np.arange(M)*360/M)) 
+ant_y = -uca_r*np.sin(np.deg2rad(np.arange(M)*360/M))    
 
 """
     --> Test case control vector <--

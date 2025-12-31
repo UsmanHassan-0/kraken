@@ -113,7 +113,6 @@ DOA_METHODS = [
     {"label": "MEM", "value": "MEM"},
     {"label": "TNA", "value": "TNA"},
     {"label": "MUSIC", "value": "MUSIC"},
-    {"label": "ROOT-MUSIC", "value": "ROOT-MUSIC"},
 ]
 
 HZ_TO_MHZ = 1.0e-6

@@ -43,7 +43,7 @@ import numpy.linalg as lin
 import scipy
 from iq_header import IQHeader
 from kraken_sdr_receiver import ReceiverRTLSDR
-from numba import float32, njit, vectorize
+from numba import njit
 from pyargus import directionEstimation as de
 from scipy import fft, signal
 from signal_utils import can_store_file, fm_demod, write_wav
@@ -60,7 +60,6 @@ from variables import (
 # os.environ['NUMBA_CPU_NAME'] = 'cortex-a72'
 
 DEFAULT_VFO_FIR_ORDER_FACTOR = int(2)
-DEFAULT_ROOT_MUSIC_STD_DEGREES = 1
 
 NEAR_ZERO = 1e-15
 
@@ -108,11 +107,8 @@ class SignalProcessor(threading.Thread):
         self.DOA_offset = 0
         self.DOA_UCA_radius_m = np.Infinity
         self.DOA_inter_elem_space = 0.5
-        self.DOA_ant_alignment = "ULA"
-        self.ula_direction = "Both"
+        self.DOA_ant_alignment = "UCA"
         self.DOA_theta = np.linspace(0, 359, 360)
-        self.custom_array_x = np.array([0.1, 0.2, 0.3, 0.4, 0.5])
-        self.custom_array_y = np.array([0.1, 0.2, 0.3, 0.4, 0.5])
         self.array_offset = 0.0
         self.DOA_expected_num_of_sources = 1
         self.DOA_decorrelation_method = "Off"
@@ -752,16 +748,7 @@ class SignalProcessor(threading.Thread):
         Estimates the direction of arrival of the received RF signal
         """
 
-        antennas_alignment = self.DOA_ant_alignment
-        if antennas_alignment == "UCA" and (
-            self.DOA_algorithm == "ROOT-MUSIC" or self.DOA_decorrelation_method != "Off"
-        ):
-            antennas_alignment = "VULA"
-
-        if antennas_alignment == "VULA":
-            processed_signal = transform_to_phase_mode_space(processed_signal, self.DOA_UCA_radius_m, vfo_freq)
-            # no idea on why this fliping of direction is needed
-            processed_signal = np.flip(processed_signal)
+        antennas_alignment = "UCA"
 
         # Calculating spatial correlation matrix
         R = corr_matrix(processed_signal)
@@ -772,8 +759,7 @@ class SignalProcessor(threading.Thread):
         elif self.DOA_decorrelation_method == "TOEP":
             R = toeplitzify(R)
         elif self.DOA_decorrelation_method == "FBSS":
-            # VULA must have odd number of elements after spatial averaging
-            smoothing_degree = 2 if antennas_alignment == "VULA" else 1
+            smoothing_degree = 1
             subarray_size = M - smoothing_degree
             if subarray_size > 1:
                 R = de.spatial_smoothing(processed_signal.T, subarray_size, "forward-backward")
@@ -793,23 +779,7 @@ class SignalProcessor(threading.Thread):
         frq_ratio = vfo_freq / self.module_receiver.daq_center_freq
         inter_element_spacing = self.DOA_inter_elem_space * frq_ratio
 
-        if antennas_alignment == "ULA":
-            scanning_vectors = gen_scanning_vectors(
-                M, inter_element_spacing, antennas_alignment, int(self.array_offset)
-            )
-        elif antennas_alignment == "UCA":
-            scanning_vectors = gen_scanning_vectors(
-                M, inter_element_spacing, antennas_alignment, int(self.array_offset)
-            )
-        elif antennas_alignment == "VULA":
-            L = R.shape[0] // 2
-            scanning_vectors = gen_scanning_vectors_phase_modes_space(L, self.array_offset)
-        elif antennas_alignment == "Custom":
-            scanning_vectors = gen_scanning_vectors_custom(
-                M, self.custom_array_x * frq_ratio, self.custom_array_y * frq_ratio
-            )
-        else:
-            scanning_vectors = np.empty((0, 0))
+        scanning_vectors = gen_scanning_vectors(M, inter_element_spacing, antennas_alignment, int(self.array_offset))
 
         # DOA estimation
         if self.DOA_algorithm == "Bartlett":  # self.en_DOA_Bartlett:
@@ -828,32 +798,7 @@ class SignalProcessor(threading.Thread):
                 R, scanning_vectors, signal_dimension=self.DOA_expected_num_of_sources
             )  # de.DOA_MUSIC(R, scanning_vectors, signal_dimension = 1)
             self.DOA = DOA_MUSIC_res
-        if self.DOA_algorithm == "ROOT-MUSIC":
-            is_vula = True if antennas_alignment == "VULA" else False
-            doas = doa_root_music(
-                R, self.DOA_expected_num_of_sources, is_vula, inter_element_spacing, self.array_offset
-            )
-            self.DOA = normalized_gaussian(self.DOA_theta, doas, DEFAULT_ROOT_MUSIC_STD_DEGREES)
-            # since roots are sorted based on how close they are to the unit circle,
-            # which in turn is proportional to SNR,
-            # then the last element should correspond to the strongest signal
-            theta_0 = doas[-1]
-
-        # ULA Array, choose bewteen the full omnidirecitonal 360 data, or forward/backward data only
-        if self.DOA_ant_alignment == "ULA":
-            thetas = (
-                np.linspace(0, 359, 360) - self.array_offset
-            ) % 360  # Rotate array with offset (in reverse to compensate for rotation done in gen_scanning_vectors)
-            if self.ula_direction == "Forward":
-                self.DOA[thetas[90:270].astype(int)] = min(self.DOA)
-            # self.DOA[90:270] = min(self.DOA)
-            if self.ula_direction == "Backward":
-                min_val = min(self.DOA)
-                self.DOA[thetas[0:90].astype(int)] = min_val
-                self.DOA[thetas[270:360].astype(int)] = min_val
-
-        if self.DOA_algorithm != "ROOT-MUSIC":
-            theta_0 = self.DOA_theta[np.argmax(self.DOA)]
+        theta_0 = self.DOA_theta[np.argmax(self.DOA)]
 
         return theta_0
 
@@ -1050,73 +995,6 @@ def DOA_MUSIC(R, scanning_vectors, signal_dimension, angle_resolution=1):
     return ADORT
 
 
-# transform angle defined in [-pi, pi) range to [0, 2pi) interval
-@vectorize([float32(float32)])
-def to_zero_to_2pi(angle):
-    if angle < np.float32(0.0):
-        angle *= np.float32(-1.0)
-    elif angle > np.float32(0.0):
-        angle = np.float32(2.0 * np.pi) - angle
-    else:
-        pass
-    return angle
-
-
-# transform angle defined in [-pi/2, pi/2) range to [0, pi) interval
-@vectorize([float32(float32)])
-def to_zero_to_pi(angle):
-    if angle < np.float32(0.0):
-        angle *= np.float32(-1.0)
-    elif angle > np.float32(0.0):
-        angle = np.float32(np.pi) - angle
-    else:
-        pass
-    return angle
-
-
-# Root-MUSIC DoA estimator for ULA and UCA
-# A. Barabell,
-# "Improving the resolution performance of eigenstructure-based direction-finding algorithms."
-# ICASSP'83. IEEE International Conference on Acoustics, Speech, and Signal Processing. Vol. 8. IEEE, 1983.
-# doi: 10.1109/ICASSP.1983.1172124
-@njit(fastmath=True, cache=True)
-def doa_root_music(r, signal_dimension, is_vula, inter_element_spacing, array_angle_offset):
-    M = r.shape[0]
-
-    # correlation matrix is Hermitian, so why not to use faster `eigh` solver
-    _, v_i = lin.eigh(r)
-
-    # Generate noise subspace matrix
-    # eigh provides eigenvalues sorted in ascending order out-of-the-box
-    v_i = v_i.astype(np.complex64)
-    e_noise = v_i[:, :-signal_dimension]
-
-    e_ct = e_noise @ e_noise.conj().T
-
-    p_coeff = np.empty(2 * M - 1, dtype=np.complex64)
-    for i in range(-M + 1, M):
-        p_coeff[i + (M - 1)] = np.trace(e_ct, i)
-
-    all_roots = np.roots(p_coeff)
-
-    candidate_roots_abs = np.abs(all_roots)
-    sorted_idx = candidate_roots_abs.argsort()[(M - 1 - signal_dimension) : (M - 1)]
-
-    valid_roots = all_roots[sorted_idx]
-    args = np.angle(valid_roots)
-
-    if is_vula:
-        doas = to_zero_to_2pi(args)
-        doas_deg = np.rad2deg(doas) + array_angle_offset
-        return doas_deg
-
-    doas = np.arcsin(args / (np.float32(inter_element_spacing * 2.0 * np.pi)))
-    doas = to_zero_to_pi(doas)
-    doas_deg = np.rad2deg(doas) + array_angle_offset
-
-    return doas_deg
-
-
 # Rather naive way to estimate SNR (in dBs) based on the assumption that largest and smallest eigenvalues
 # of the correlation matrix corresponds to the powers of the signal plus noise  and noise respectively.
 # Even though it won't estimate SNR beyond dominant signal, if it is already quite small,
@@ -1131,67 +1009,11 @@ def SNR(R: np.ndarray) -> float:
     return snr
 
 
-# Multimodal 360 degrees prediodic Gaussian function
-@njit(fastmath=True, cache=True)
-def normalized_gaussian(x, x0, sigma):
-    doa_spectrum = np.zeros_like(x)
-    for n in range(x0.size):
-        x0_n = x0[n]
-        x0_mirror = 180.0 + x0_n if x0_n < 180.0 else x0_n - 180.0
-        for i in range(x.size):
-            x_i = x[i]
-            x_wrapped = x_i
-            if x0_mirror > 180.0:
-                x_wrapped = x_i if x_i < x0_mirror else x0_mirror - x_i % x0_mirror
-            else:
-                x_wrapped = x_i if x_i >= x0_mirror else 2.0 * x0_mirror - x_i % x0_mirror
-            doa_spectrum[i] += np.exp(-0.5 * ((x_wrapped - x0_n) / sigma) ** 2)
-    doa_spectrum /= doa_spectrum.max()
-    return doa_spectrum
-
-
 def xi(uca_radius_m: float, frequency_Hz: float) -> Tuple[float, int]:
     wavelength_m = scipy.constants.speed_of_light / frequency_Hz
     x = 2.0 * np.pi * uca_radius_m / wavelength_m
     L = int(np.floor(x))
     return x, L
-
-
-# The phase mode excitation transformation
-# as introduced by A. H. Tewfik and W. Hong,
-# "On the application of uniform linear array bearing estimation techniques to uniform circular arrays",
-# in IEEE Transactions on Signal Processing, vol. 40, no. 4, pp. 1008-1011, April 1992,
-# doi: 10.1109/78.127980.
-@lru_cache(maxsize=32)
-def T(uca_radius_m: float, frequency_Hz: float, N: int) -> np.ndarray:
-    x, L = xi(uca_radius_m, frequency_Hz)
-
-    # J
-    J = np.diag([1.0 / ((1j**v) * scipy.special.jv(v, x)) for v in range(-L, L + 1, 1)])
-
-    # F
-    F = np.array([[np.exp(2.0j * np.pi * (m * n / N)) for n in range(0, N, 1)] for m in range(-L, L + 1, 1)])
-
-    return (J @ F) / float(N)
-
-
-# The so-called "prewhitening"
-# applied to turn A into unitary transformation
-def whiten(A: np.ndarray) -> np.ndarray:
-    A_H = A.conj().T
-    A_w = A @ A_H
-    A_w = scipy.linalg.fractional_matrix_power(A_w, -0.5)
-    return A_w @ A
-
-
-# @njit(fastmath=True, cache=True)
-def transform_to_phase_mode_space(signal: np.ndarray, uca_radius_m: float, frequency_Hz: float) -> np.ndarray:
-    T_ = T(uca_radius_m, frequency_Hz, signal.shape[0])
-    # apparently T is not unitary and would "color" the noise in the input signal
-    # thus prewhitening needs to be applied particularly to make MUSIC work
-    Tw = whiten(T_)
-    x = Tw @ signal
-    return x
 
 
 # Numba optimized version of pyArgus corr_matrix_estimate with "fast". About 2x faster on Pi4
@@ -1231,72 +1053,23 @@ def fb_toeplitz_reconstruction(R: np.ndarray) -> np.ndarray:
 
 # LRU cache memoize about 1000x faster.
 @lru_cache(maxsize=32)
-def gen_scanning_vectors_phase_modes_space(L, offset):
-    thetas = np.deg2rad(np.linspace(0, 359, 360, dtype=float))
-    M = np.arange(-L, L + 1, dtype=float)
-    scanning_vectors = np.zeros((M.size, thetas.size), dtype=np.complex64)
-    for i in range(thetas.size):
-        scanning_vectors[:, i] = np.exp(1.0j * M * (thetas[i] + offset))
-
-    return np.ascontiguousarray(scanning_vectors)
-
-
-# LRU cache memoize about 1000x faster.
-@lru_cache(maxsize=32)
 def gen_scanning_vectors(M, DOA_inter_elem_space, type, offset):
     thetas = np.linspace(
         0, 359, 360
     )  # Remember to change self.DOA_thetas too, we didn't include that in this function due to memoization cannot work with arrays
-    if type == "UCA":
-        # convert UCA inter element spacing back to its radius
-        to_r = 1.0 / (np.sqrt(2.0) * np.sqrt(1.0 - np.cos(2.0 * np.pi / M)))
-        r = DOA_inter_elem_space * to_r
-        x = r * np.cos(2 * np.pi / M * np.arange(M))
-        y = -r * np.sin(2 * np.pi / M * np.arange(M))  # For this specific array only
-    elif "ULA":
-        x = np.zeros(M)
-        y = -np.arange(M) * DOA_inter_elem_space
+    if type != "UCA":
+        type = "UCA"
+
+    # convert UCA inter element spacing back to its radius
+    to_r = 1.0 / (np.sqrt(2.0) * np.sqrt(1.0 - np.cos(2.0 * np.pi / M)))
+    r = DOA_inter_elem_space * to_r
+    x = r * np.cos(2 * np.pi / M * np.arange(M))
+    y = -r * np.sin(2 * np.pi / M * np.arange(M))  # For this specific array only
 
     scanning_vectors = np.zeros((M, thetas.size), dtype=np.complex64)
     for i in range(thetas.size):
         scanning_vectors[:, i] = np.exp(
             1j * 2 * np.pi * (x * np.cos(np.deg2rad(thetas[i] + offset)) + y * np.sin(np.deg2rad(thetas[i] + offset)))
-        )
-
-    return np.ascontiguousarray(scanning_vectors)
-
-
-# @lru_cache(maxsize=32)
-@njit(fastmath=True, cache=True)
-def gen_scanning_vectors_custom(M, custom_x, custom_y):
-    thetas = np.linspace(
-        0, 359, 360
-    )  # Remember to change self.DOA_thetas too, we didn't include that in this function due to memoization cannot work with arrays
-
-    x = np.zeros(M, dtype=np.float32)
-    y = np.zeros(M, dtype=np.float32)
-
-    for i in range(len(custom_x)):
-        if i > M:
-            break
-        if custom_x[i] == "":
-            x[i] = 0
-        else:
-            x[i] = float(custom_x[i])
-
-    for i in range(len(custom_y)):
-        if i > M:
-            break
-        if custom_x[i] == "":
-            y[i] = 0
-        else:
-            y[i] = float(custom_y[i])
-
-    scanning_vectors = np.zeros((M, thetas.size), dtype=np.complex64)
-    complex_pi = 1j * 2 * np.pi
-    for i in range(thetas.size):
-        scanning_vectors[:, i] = np.exp(
-            complex_pi * (x * np.cos(np.deg2rad(thetas[i])) + y * np.sin(np.deg2rad(thetas[i])))
         )
 
     return np.ascontiguousarray(scanning_vectors)

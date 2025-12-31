@@ -32,16 +32,13 @@ def update_daq_params(input_value, f0, gain):
 
         wavelength = 300 / f0
 
-        if web_interface.module_signal_processor.DOA_ant_alignment == "UCA":
-            # Convert RADIUS to INTERELEMENT SPACING
-            inter_elem_spacing = (
-                np.sqrt(2)
-                * web_interface.ant_spacing_meters
-                * np.sqrt(1 - np.cos(np.deg2rad(360 / web_interface.module_signal_processor.channel_number)))
-            )
-            web_interface.module_signal_processor.DOA_inter_elem_space = inter_elem_spacing / wavelength
-        else:
-            web_interface.module_signal_processor.DOA_inter_elem_space = web_interface.ant_spacing_meters / wavelength
+        # Convert RADIUS to INTERELEMENT SPACING
+        inter_elem_spacing = (
+            np.sqrt(2)
+            * web_interface.ant_spacing_meters
+            * np.sqrt(1 - np.cos(np.deg2rad(360 / web_interface.module_signal_processor.channel_number)))
+        )
+        web_interface.module_signal_processor.DOA_inter_elem_space = inter_elem_spacing / wavelength
 
         ant_spacing_wavelength = round(web_interface.module_signal_processor.DOA_inter_elem_space, 3)
         app.push_mods(

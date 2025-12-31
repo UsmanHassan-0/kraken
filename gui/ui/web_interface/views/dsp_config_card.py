@@ -22,54 +22,9 @@ def get_dsp_config_card_layout():
             html.H2("DoA Configuration", id="init_title_d"),
             html.Div(
                 [
-                    html.Span("Array Configuration: ", id="label_ant_arrangement", className="field-label"),
-                    dcc.RadioItems(
-                        options=[
-                            {"label": "ULA", "value": "ULA"},
-                            {"label": "UCA", "value": "UCA"},
-                            {"label": "Custom", "value": "Custom"},
-                        ],
-                        value=web_interface.module_signal_processor.DOA_ant_alignment,
-                        className="field-body",
-                        labelStyle={"display": "inline-block", "verticalAlign": "middle"},
-                        id="radio_ant_arrangement",
-                    ),
-                ],
-                className="field",
-            ),
-            html.Div(
-                [
-                    html.Div("Custom X [m]:", className="field-label"),
-                    dcc.Input(
-                        id="custom_array_x_meters",
-                        value=",".join(["%.2f" % num for num in web_interface.custom_array_x_meters]),
-                        type="text",
-                        debounce=True,
-                        className="field-body-textbox",
-                    ),
-                ],
-                id="customx",
-                className="field",
-            ),
-            html.Div(
-                [
-                    html.Div("Custom Y [m]:", className="field-label"),
-                    dcc.Input(
-                        id="custom_array_y_meters",
-                        value=",".join(["%.2f" % num for num in web_interface.custom_array_y_meters]),
-                        type="text",
-                        debounce=True,
-                        className="field-body-textbox",
-                    ),
-                ],
-                id="customy",
-                className="field",
-            ),
-            html.Div(
-                [
                     html.Div(
                         [
-                            html.Div("[meter]:", id="label_ant_spacing_meter", className="field-label"),
+                            html.Div("Array Radius [m]:", id="label_ant_spacing_meter", className="field-label"),
                             dcc.Input(
                                 id="ant_spacing_meter",
                                 value=ant_spacing_meter,
@@ -118,7 +73,6 @@ def get_dsp_config_card_layout():
                 ],
                 className="field",
             ),
-            html.Div([html.Div("", id="uca_root_music_warning", className="field", style={"color": "#f39c12"})]),
             html.Div(
                 [
                     html.Div("Decorrelation:", id="label_decorrelation", className="field-label"),
@@ -133,23 +87,6 @@ def get_dsp_config_card_layout():
                 className="field",
             ),
             html.Div([html.Div("", id="uca_decorrelation_warning", className="field", style={"color": "#f39c12"})]),
-            html.Div(
-                [
-                    html.Div("ULA Output Direction:", id="label_ula_direction", className="field-label"),
-                    dcc.Dropdown(
-                        id="ula_direction",
-                        options=[
-                            {"label": "Both", "value": "Both"},
-                            {"label": "Forward", "value": "Forward"},
-                            {"label": "Backward", "value": "Backward"},
-                        ],
-                        value=web_interface.module_signal_processor.ula_direction,
-                        style={"display": "inline-block"},
-                        className="field-body",
-                    ),
-                ],
-                className="field",
-            ),
             html.Div(
                 [
                     html.Div("Array Offset:", id="label_array_offset", className="field-label"),

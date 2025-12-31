@@ -5,26 +5,7 @@ dsp_config_tooltips = html.Div(
     [
         # Antenna arrangement selection
         dbc.Tooltip(
-            [
-                html.P("ULA - Uniform Linear Array"),
-                html.P(
-                    "Antenna elements placed on a line with equal distances between each other. Cannot determine if the source is behind or in front of array without additional information."
-                ),
-                html.P("UCA - Uniform Circular Array"),
-                html.P(
-                    "Antenna elements are placed on a circle equaly distributed at some radius around 360°. UCA is the most common array."
-                ),
-                html.P("Custom - Custom Array"),
-                html.P(
-                    "Input custom array coordinates in meters as comma seperated values. Useful for irregular arrays."
-                ),
-            ],
-            target="label_ant_arrangement",
-            placement="bottom",
-            className="tooltip",
-        ),
-        dbc.Tooltip(
-            [html.P("Spacing of the array specified in meters. For ULA the interelement spacing. For UCA the radius.")],
+            [html.P("Array radius specified in meters.")],
             target="label_ant_spacing_meter",
             placement="bottom",
             className="tooltip",
@@ -184,9 +165,6 @@ dsp_config_tooltips = html.Div(
                 html.P(
                     "If the 0 degree direction of the array is not in-line with the heading of the vehicle, use this to offset the array."
                 ),
-                html.P(
-                    "For example, if you are using a linear array with the broadside not facing the front of the car."
-                ),
             ],
             target="label_array_offset",
             placement="bottom",
@@ -200,16 +178,6 @@ dsp_config_tooltips = html.Div(
                 html.P("Setting this to larger than expected number of rf sources might give misleading results."),
             ],
             target="label_expected_num_of_sources",
-            placement="bottom",
-            className="tooltip",
-        ),
-        dbc.Tooltip(
-            [
-                html.P(
-                    "Linear arrays cannot differentiate between a signal in front or behind the array. If you have prior knowledge about the signal source location, choose if the signal is in front or behind the array."
-                )
-            ],
-            target="label_ula_direction",
             placement="bottom",
             className="tooltip",
         ),
